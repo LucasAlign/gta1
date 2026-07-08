@@ -73,3 +73,4 @@ unity/.vs/
 godot/.godot/
 godot/export.cfg
 godot/export_presets.cfg.tmp
+artifacts/godot-web-preview/
