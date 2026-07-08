@@ -42,8 +42,17 @@ namespace GrandTractorAuto.Player
 
         public void RequestInteract()
         {
+            if (vehicle != null)
+            {
+                vehicle.Dismount();
+                vehicle = null;
+                moveInput = Vector2.zero;
+                return;
+            }
+
             interactor.TryInteract();
             vehicle = transform.parent != null ? transform.parent.GetComponentInParent<VehicleController>() : null;
+            moveInput = Vector2.zero;
         }
     }
 }

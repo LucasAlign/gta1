@@ -9,6 +9,7 @@ namespace GrandTractorAuto.Vehicles
     {
         [SerializeField] private VehicleDefinition definition;
         [SerializeField] private Transform seatAnchor;
+        [SerializeField] private Transform exitAnchor;
 
         private Rigidbody body;
         private float throttle;
@@ -16,6 +17,7 @@ namespace GrandTractorAuto.Vehicles
 
         public VehicleDefinition Definition => definition;
         public bool HasDriver { get; private set; }
+        public Transform Driver { get; private set; }
         public string InteractionLabel => HasDriver || definition == null ? "Ride" : $"Drive {definition.DisplayName}";
         public Transform InteractionTransform => seatAnchor != null ? seatAnchor : transform;
 
@@ -57,7 +59,15 @@ namespace GrandTractorAuto.Vehicles
 
         public void Mount(Transform rider)
         {
+            if (rider == null)
+            {
+                return;
+            }
+
             HasDriver = true;
+            Driver = rider;
+            SetInput(0f, 0f);
+
             if (seatAnchor != null)
             {
                 rider.SetPositionAndRotation(seatAnchor.position, seatAnchor.rotation);
@@ -65,11 +75,20 @@ namespace GrandTractorAuto.Vehicles
             }
         }
 
-        public void Dismount(Transform rider, Vector3 exitPosition)
+        public void Dismount()
         {
+            if (Driver == null)
+            {
+                HasDriver = false;
+                SetInput(0f, 0f);
+                return;
+            }
+
+            var exitPosition = exitAnchor != null ? exitAnchor.position : transform.position + transform.right * 1.5f;
+            Driver.SetParent(null);
+            Driver.position = exitPosition;
+            Driver = null;
             HasDriver = false;
-            rider.SetParent(null);
-            rider.position = exitPosition;
             SetInput(0f, 0f);
         }
     }
