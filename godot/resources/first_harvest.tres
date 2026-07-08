@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="JobDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/job_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "job.farm.first_harvest"
+display_name = "First Harvest"
+type = "Farming"
+narration_prompt = "Could you grow one carrot for me?"
+helping_stars_reward = 1
+required_interaction_tags = Array[String](["plant", "water", "harvest"])
+unlocks_on_complete = Array[String]([])

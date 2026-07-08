@@ -67,3 +67,9 @@ unity/.vs/
 *.svd
 *.pdb
 *.mdb
+
+# Godot generated files
+.godot/
+godot/.godot/
+godot/export.cfg
+godot/export_presets.cfg.tmp

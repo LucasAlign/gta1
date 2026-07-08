@@ -1,0 +1,222 @@
+[gd_scene load_steps=31 format=3 uid="uid://phase1funminute"]
+
+[ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1_player"]
+[ext_resource type="Script" path="res://scripts/interaction/interactor.gd" id="2_interactor"]
+[ext_resource type="Script" path="res://scripts/vehicles/vehicle_controller.gd" id="3_vehicle"]
+[ext_resource type="Script" path="res://scripts/farming/crop_plot.gd" id="4_cropplot"]
+[ext_resource type="Script" path="res://scripts/npcs/helpful_npc.gd" id="5_npc"]
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="6_hud"]
+[ext_resource type="Resource" path="res://resources/starter_tractor.tres" id="7_tractor_def"]
+[ext_resource type="Resource" path="res://resources/carrot.tres" id="8_carrot"]
+[ext_resource type="Resource" path="res://resources/first_harvest.tres" id="9_job"]
+
+[sub_resource type="StandardMaterial3D" id="mat_grass"]
+albedo_color = Color(0.48, 0.82, 0.32, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_soil"]
+albedo_color = Color(0.42, 0.25, 0.12, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_player"]
+albedo_color = Color(0.18, 0.45, 0.95, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_tractor"]
+albedo_color = Color(1, 0.82, 0.18, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_tractor_dark"]
+albedo_color = Color(0.16, 0.26, 0.14, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_npc"]
+albedo_color = Color(1, 0.74, 0.48, 1)
+
+[sub_resource type="PlaneMesh" id="mesh_ground"]
+size = Vector2(36, 26)
+
+[sub_resource type="BoxMesh" id="mesh_box"]
+size = Vector3(1, 1, 1)
+
+[sub_resource type="CapsuleMesh" id="mesh_capsule"]
+radius = 0.35
+height = 1.4
+
+[sub_resource type="SphereMesh" id="mesh_sphere"]
+radius = 0.45
+height = 0.9
+
+[sub_resource type="BoxMesh" id="mesh_plot"]
+size = Vector3(3, 0.25, 2)
+
+[sub_resource type="BoxMesh" id="mesh_tractor_body"]
+size = Vector3(2.2, 0.8, 1.4)
+
+[sub_resource type="BoxMesh" id="mesh_tractor_cab"]
+size = Vector3(0.9, 0.8, 1.0)
+
+[sub_resource type="SphereMesh" id="mesh_wheel"]
+radius = 0.38
+height = 0.76
+
+[sub_resource type="CapsuleShape3D" id="shape_player"]
+radius = 0.35
+height = 1.4
+
+[sub_resource type="BoxShape3D" id="shape_tractor"]
+size = Vector3(2.5, 1.2, 1.8)
+
+[sub_resource type="BoxShape3D" id="shape_plot"]
+size = Vector3(3, 1.2, 2)
+
+[sub_resource type="CapsuleShape3D" id="shape_npc"]
+radius = 0.45
+height = 1.5
+
+[sub_resource type="LabelSettings" id="label_big"]
+font_size = 24
+font_color = Color(0.1, 0.22, 0.14, 1)
+
+[sub_resource type="LabelSettings" id="label_small"]
+font_size = 18
+font_color = Color(0.1, 0.22, 0.14, 1)
+
+[node name="Phase1FunMinute" type="Node3D"]
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.25, 0.433013, 0, 0.866025, 0.5, -0.5, -0.433013, 0.75, 0, 8, 0)
+light_energy = 2.5
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.819152, 0.573576, 0, -0.573576, 0.819152, 0, 12, 14)
+current = true
+fov = 48.0
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("mesh_ground")
+surface_material_override/0 = SubResource("mat_grass")
+
+[node name="Player" type="CharacterBody3D" parent="." node_paths=PackedStringArray("interactor_path")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0.7, 2)
+script = ExtResource("1_player")
+interactor_path = NodePath("Interactor")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+shape = SubResource("shape_player")
+
+[node name="Body" type="MeshInstance3D" parent="Player"]
+mesh = SubResource("mesh_capsule")
+surface_material_override/0 = SubResource("mat_player")
+
+[node name="Interactor" type="Area3D" parent="Player"]
+script = ExtResource("2_interactor")
+interaction_radius = 2.4
+
+[node name="StarterTractor" type="Area3D" parent="." node_paths=PackedStringArray("seat_path", "exit_path")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.65, -3)
+script = ExtResource("3_vehicle")
+definition = ExtResource("7_tractor_def")
+seat_path = NodePath("Seat")
+exit_path = NodePath("Exit")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StarterTractor"]
+shape = SubResource("shape_tractor")
+
+[node name="Body" type="MeshInstance3D" parent="StarterTractor"]
+mesh = SubResource("mesh_tractor_body")
+surface_material_override/0 = SubResource("mat_tractor")
+
+[node name="Cab" type="MeshInstance3D" parent="StarterTractor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.35, 0.75, 0)
+mesh = SubResource("mesh_tractor_cab")
+surface_material_override/0 = SubResource("mat_tractor")
+
+[node name="WheelFL" type="MeshInstance3D" parent="StarterTractor"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, -0.8, -0.4, -0.75)
+mesh = SubResource("mesh_wheel")
+surface_material_override/0 = SubResource("mat_tractor_dark")
+
+[node name="WheelFR" type="MeshInstance3D" parent="StarterTractor"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0.8, -0.4, -0.75)
+mesh = SubResource("mesh_wheel")
+surface_material_override/0 = SubResource("mat_tractor_dark")
+
+[node name="WheelBL" type="MeshInstance3D" parent="StarterTractor"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, -0.8, -0.4, 0.75)
+mesh = SubResource("mesh_wheel")
+surface_material_override/0 = SubResource("mat_tractor_dark")
+
+[node name="WheelBR" type="MeshInstance3D" parent="StarterTractor"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0.8, -0.4, 0.75)
+mesh = SubResource("mesh_wheel")
+surface_material_override/0 = SubResource("mat_tractor_dark")
+
+[node name="Seat" type="Marker3D" parent="StarterTractor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 1.25, 0)
+
+[node name="Exit" type="Marker3D" parent="StarterTractor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.8, 0.2, 0)
+
+[node name="CropPlot" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 0.15, -2)
+script = ExtResource("4_cropplot")
+crop = ExtResource("8_carrot")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CropPlot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+shape = SubResource("shape_plot")
+
+[node name="Soil" type="MeshInstance3D" parent="CropPlot"]
+mesh = SubResource("mesh_plot")
+surface_material_override/0 = SubResource("mat_soil")
+
+[node name="Neighbor" type="Area3D" parent="." node_paths=PackedStringArray("linked_crop_plot_path")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.75, 1.5)
+script = ExtResource("5_npc")
+character_name = "Neighbor"
+job = ExtResource("9_job")
+linked_crop_plot_path = NodePath("../CropPlot")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Neighbor"]
+shape = SubResource("shape_npc")
+
+[node name="Body" type="MeshInstance3D" parent="Neighbor"]
+mesh = SubResource("mesh_capsule")
+surface_material_override/0 = SubResource("mat_npc")
+
+[node name="Head" type="MeshInstance3D" parent="Neighbor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+mesh = SubResource("mesh_sphere")
+surface_material_override/0 = SubResource("mat_npc")
+
+[node name="Hud" type="CanvasLayer" parent="." node_paths=PackedStringArray("interactor_path")]
+script = ExtResource("6_hud")
+interactor_path = NodePath("../Player/Interactor")
+
+[node name="Panel" type="Panel" parent="Hud"]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 110.0
+
+[node name="StarsLabel" type="Label" parent="Hud/Panel"]
+unique_name_in_owner = true
+offset_left = 20.0
+offset_top = 12.0
+offset_right = 360.0
+offset_bottom = 44.0
+label_settings = SubResource("label_big")
+text = "Helping Stars: 0"
+
+[node name="NarrationLabel" type="Label" parent="Hud/Panel"]
+unique_name_in_owner = true
+offset_left = 20.0
+offset_top = 48.0
+offset_right = 760.0
+offset_bottom = 78.0
+label_settings = SubResource("label_small")
+text = "Let's help the garden grow."
+
+[node name="InteractionLabel" type="Label" parent="Hud/Panel"]
+unique_name_in_owner = true
+offset_left = 20.0
+offset_top = 78.0
+offset_right = 760.0
+offset_bottom = 104.0
+label_settings = SubResource("label_small")
+text = "Move: WASD   Interact: Space"

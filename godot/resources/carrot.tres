@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CropDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/crop_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "crop.carrot"
+display_name = "Carrot"
+watering_steps_to_harvest = 2
+helping_stars_on_harvest = 1

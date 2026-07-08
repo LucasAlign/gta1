@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="VehicleDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/vehicle_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "vehicle.tractor.starter"
+display_name = "Starter Tractor"
+category = "Farm"
+max_speed = 5.0
+acceleration = 7.0
+turn_speed = 95.0
+can_reverse = true
+interaction_tags = Array[String](["drive"])
+attachment_slots = Array[String](["rear"])
