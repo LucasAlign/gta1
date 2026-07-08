@@ -21,17 +21,17 @@ func award_helping_stars(amount: int) -> void:
 	helping_stars_changed.emit(helping_stars)
 	save_game()
 
-func complete_job(job: JobDefinition) -> void:
+func complete_job(job: Resource) -> void:
 	if job == null or completed_job_ids.has(job.id):
 		return
 	completed_job_ids.append(job.id)
 	award_helping_stars(job.helping_stars_reward)
 	save_game()
 
-func is_job_complete(job: JobDefinition) -> bool:
+func is_job_complete(job: Resource) -> bool:
 	return job != null and completed_job_ids.has(job.id)
 
-func remember_harvest(crop: CropDefinition) -> void:
+func remember_harvest(crop: Resource) -> void:
 	if crop == null:
 		return
 	harvested_crop_ids.append(crop.id)

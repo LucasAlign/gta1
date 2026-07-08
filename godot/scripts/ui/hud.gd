@@ -13,7 +13,7 @@ func _ready() -> void:
 	_on_narration_requested("Let's help the garden grow.")
 
 func _process(_delta: float) -> void:
-	var interactor := get_node_or_null(interactor_path) as Interactor
+	var interactor := get_node_or_null(interactor_path)
 	if interactor != null and interactor.current != null and interactor.current.has_method("get_interaction_label"):
 		interaction_label.text = "Space: %s" % interactor.current.get_interaction_label()
 	else:

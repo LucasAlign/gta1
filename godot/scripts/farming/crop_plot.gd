@@ -1,11 +1,11 @@
 extends Area3D
 class_name CropPlot
 
-signal harvested(crop: CropDefinition)
+signal harvested(crop: Resource)
 
 enum CropPlotState { EMPTY, PLANTED, GROWING, HARVEST_READY }
 
-@export var crop: CropDefinition
+@export var crop: Resource
 @export var visual_root_path: NodePath
 
 var state: CropPlotState = CropPlotState.EMPTY
@@ -30,10 +30,10 @@ func get_interaction_label() -> String:
 		_:
 			return "Garden"
 
-func can_interact(_interactor: Interactor) -> bool:
+func can_interact(_interactor: Node) -> bool:
 	return crop != null
 
-func interact(_interactor: Interactor) -> void:
+func interact(_interactor: Node) -> void:
 	match state:
 		CropPlotState.EMPTY:
 			plant()

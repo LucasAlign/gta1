@@ -4,7 +4,7 @@ class_name PlayerController
 @export var walking_speed: float = 4.0
 @export var interactor_path: NodePath
 
-var vehicle: VehicleController = null
+var vehicle: Node = null
 
 func _physics_process(_delta: float) -> void:
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -26,10 +26,10 @@ func _request_interact() -> void:
 	if interactor == null:
 		return
 	interactor.try_interact()
-	if interactor.current is VehicleController:
+	if interactor.current != null and interactor.current.has_method("set_input") and interactor.current.has_method("dismount"):
 		vehicle = interactor.current
 
-func _interactor() -> Interactor:
+func _interactor() -> Node:
 	if interactor_path != NodePath("") and has_node(interactor_path):
-		return get_node(interactor_path) as Interactor
+		return get_node(interactor_path)
 	return null

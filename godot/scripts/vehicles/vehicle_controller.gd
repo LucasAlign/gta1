@@ -1,7 +1,7 @@
 extends Area3D
 class_name VehicleController
 
-@export var definition: VehicleDefinition
+@export var definition: Resource
 @export var seat_path: NodePath
 @export var exit_path: NodePath
 
@@ -31,10 +31,10 @@ func get_interaction_label() -> String:
 		return "Ride"
 	return "Drive %s" % definition.display_name
 
-func can_interact(_interactor: Interactor) -> bool:
+func can_interact(_interactor: Node) -> bool:
 	return definition != null and driver == null
 
-func interact(interactor: Interactor) -> void:
+func interact(interactor: Node) -> void:
 	mount(interactor.get_parent() as Node3D)
 
 func mount(rider: Node3D) -> void:
