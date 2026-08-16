@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { COLORS, TILE, VEHICLES, VehicleSpec } from "../config";
+import { COLORS, CROPS, CropSpec, TILE, VEHICLES, VehicleSpec } from "../config";
 
 // Generates every sprite procedurally into the texture cache so the game ships
 // with zero external art dependencies (fast load, no missing-asset clunk).
@@ -17,6 +17,11 @@ export class BootScene extends Phaser.Scene {
 
     for (const spec of Object.values(VEHICLES)) {
       this.makeVehicle(spec);
+    }
+
+    this.makeTilled();
+    for (const crop of Object.values(CROPS)) {
+      this.makeCrop(crop);
     }
 
     this.scene.start("World");
@@ -93,5 +98,48 @@ export class BootScene extends Phaser.Scene {
 
     g.generateTexture(`veh-${spec.key}`, w + 6, h + 6);
     g.destroy();
+  }
+
+  // A darker, furrowed soil patch shown once a plot is tilled/planted.
+  private makeTilled() {
+    const g = this.add.graphics();
+    g.fillStyle(0x4a3320, 1).fillRect(0, 0, TILE, TILE);
+    g.lineStyle(2, 0x382618, 0.7);
+    for (let i = 1; i < 5; i++) {
+      const y = (TILE / 5) * i;
+      g.lineBetween(4, y, TILE - 4, y);
+    }
+    g.generateTexture("tilled", TILE, TILE);
+    g.destroy();
+  }
+
+  // One texture per growth stage: a sprout, a bushier plant, then a ripe crop.
+  private makeCrop(spec: CropSpec) {
+    for (let stage = 0; stage < spec.stages; stage++) {
+      const ripe = stage === spec.stages - 1;
+      const g = this.add.graphics();
+      const cx = TILE / 2;
+      const baseY = TILE * 0.72;
+      const t = (stage + 1) / spec.stages; // 0..1 size factor
+      const leafColor = ripe ? spec.leafColor : Phaser.Display.Color.IntegerToColor(spec.sproutColor).color;
+
+      // three little leaves fanning up, growing with stage
+      const h = 10 + t * 22;
+      g.lineStyle(3, leafColor, 1);
+      g.lineBetween(cx, baseY, cx, baseY - h);
+      g.lineBetween(cx, baseY, cx - 6 * t - 2, baseY - h * 0.7);
+      g.lineBetween(cx, baseY, cx + 6 * t + 2, baseY - h * 0.7);
+
+      if (ripe) {
+        // a ripe fruit/root peeking at the base
+        g.fillStyle(spec.ripeColor, 1);
+        g.fillCircle(cx, baseY + 2, 6);
+        g.fillStyle(0xffffff, 0.25);
+        g.fillCircle(cx - 2, baseY, 2);
+      }
+
+      g.generateTexture(`crop-${spec.key}-${stage}`, TILE, TILE);
+      g.destroy();
+    }
   }
 }

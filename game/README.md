@@ -30,6 +30,21 @@ scrolling, no page chrome.
 
 - **WASD / Arrow keys** — walk (on foot) or drive (in a vehicle)
 - **Enter / Space / F** — get in / out of the nearest vehicle
+- **E** — on foot, plant/harvest the plot you're standing on
+
+## Farming loop
+
+The center soil block is a grid of crop plots, wired straight into the driving
+loop instead of a menu:
+
+- **Drive the tractor over empty soil** → it tills and plants a crop.
+- Crops grow through visible stages over time (sprout → bushy → ripe).
+- **Drive the ripe crop over** → harvest it for cash (`+$` popup, HUD total
+  top-right). Only the tractor farms; cars just drive.
+- On foot, stand on a plot and press **E** to plant or harvest by hand.
+
+Crops are data-driven in `src/config.ts` (`CROPS`) — growth time, stages, and
+cash value are config, so adding a new crop is an entry, not new code.
 
 ## How it's laid out
 

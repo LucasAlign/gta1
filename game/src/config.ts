@@ -48,6 +48,35 @@ export interface VehicleSpec {
   turnRate: number; // rad/s at speed
 }
 
+// A crop is config too. `stages` is the number of visible growth steps; the last
+// stage is ripe/harvestable. `growSeconds` is time spent per stage.
+export interface CropSpec {
+  key: string;
+  label: string;
+  stages: number;
+  growSeconds: number;
+  value: number; // cash awarded on harvest
+  sproutColor: number;
+  leafColor: number;
+  ripeColor: number;
+}
+
+export const CROPS: Record<string, CropSpec> = {
+  carrot: {
+    key: "carrot",
+    label: "Carrot",
+    stages: 3,
+    growSeconds: 3.5,
+    value: 15,
+    sproutColor: 0x7ec850,
+    leafColor: 0x3f9e3f,
+    ripeColor: 0xe8792b,
+  },
+};
+
+// The crop planted when the tractor tills a fresh plot (data-driven default).
+export const DEFAULT_CROP = "carrot";
+
 export const VEHICLES: Record<string, VehicleSpec> = {
   tractor: {
     key: "tractor",

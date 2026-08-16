@@ -15,6 +15,7 @@ import {
 import { Vehicle } from "../entities/Vehicle";
 import { Player } from "../entities/Player";
 import { Hud } from "../ui/Hud";
+import { FarmField } from "../farming/FarmField";
 
 const PERIOD = BLOCK_TILES + ROAD_TILES;
 
@@ -26,6 +27,9 @@ export class WorldScene extends Phaser.Scene {
   private buildings!: Phaser.Physics.Arcade.StaticGroup;
   private driving: Vehicle | null = null;
   private hud!: Hud;
+  private farm!: FarmField;
+  private farmTiles: Array<{ tx: number; ty: number }> = [];
+  private cash = 0;
 
   private keys!: {
     up: Phaser.Input.Keyboard.Key;
@@ -37,6 +41,7 @@ export class WorldScene extends Phaser.Scene {
     s: Phaser.Input.Keyboard.Key;
     d: Phaser.Input.Keyboard.Key;
     enter: Phaser.Input.Keyboard.Key;
+    e: Phaser.Input.Keyboard.Key;
   };
 
   constructor() {
@@ -44,12 +49,19 @@ export class WorldScene extends Phaser.Scene {
   }
 
   create() {
+    // Reset per-run state so a scene restart starts clean (no accumulation).
+    this.vehicles = [];
+    this.farmTiles = [];
+    this.driving = null;
+    this.cash = 0;
+
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
     this.cameras.main.setBackgroundColor("#1a1d22");
 
     this.buildings = this.physics.add.staticGroup();
     this.buildGround();
+    this.farm = new FarmField(this, this.farmTiles);
 
     // Player starts on a road near the farm.
     const start = this.tileToPx(ROAD_TILES + 1, ROAD_TILES + 1);
@@ -78,11 +90,14 @@ export class WorldScene extends Phaser.Scene {
       s: kb.addKey("S"),
       d: kb.addKey("D"),
       enter: kb.addKey("ENTER"),
+      e: kb.addKey("E"),
     };
     // Space + F also toggle vehicle, and prevent page scroll.
     kb.addKey("SPACE").on("down", () => this.toggleVehicle());
     kb.addKey("F").on("down", () => this.toggleVehicle());
     this.keys.enter.on("down", () => this.toggleVehicle());
+    // On foot, E plants/harvests the plot you're standing on.
+    this.keys.e.on("down", () => this.footFarm());
 
     this.hud = new Hud(this);
   }
@@ -124,6 +139,7 @@ export class WorldScene extends Phaser.Scene {
 
         if (kind === "farm") {
           stamp(isBorder ? "tile-sidewalk" : "tile-soil", tx, ty);
+          if (!isBorder) this.farmTiles.push({ tx, ty });
         } else if (kind === "park") {
           stamp(isBorder ? "tile-sidewalk" : "tile-grass", tx, ty);
         } else {
@@ -269,17 +285,61 @@ export class WorldScene extends Phaser.Scene {
     const up = this.keys.up.isDown || this.keys.w.isDown;
     const down = this.keys.down.isDown || this.keys.s.isDown;
 
+    this.farm.update(dt);
+
     if (this.driving) {
       const throttle = (up ? 1 : 0) + (down ? -1 : 0);
       const steer = (right ? 1 : 0) + (left ? -1 : 0);
       this.driving.drive({ throttle, steer }, dt);
+      // The tractor tills/plants and harvests just by driving over the field.
+      if (this.driving.spec.key === "tractor" && this.driving.speed > 8) {
+        const r = this.farm.interact(this.driving.x, this.driving.y);
+        if (r.cash > 0) this.addCash(r.cash, this.driving.x, this.driving.y);
+      }
     } else {
       const dx = (right ? 1 : 0) + (left ? -1 : 0);
       const dy = (down ? 1 : 0) + (up ? -1 : 0);
       this.player.walk(dx, dy);
     }
 
-    this.hud.update(this.driving, this.nearestVehicleLabel());
+    this.hud.update(this.driving, this.nearestVehicleLabel(), this.cash, this.footHint());
+  }
+
+  // On-foot plant/harvest of the plot underfoot (E key).
+  private footFarm() {
+    if (this.driving) return;
+    const r = this.farm.interact(this.player.x, this.player.y);
+    if (r.cash > 0) this.addCash(r.cash, this.player.x, this.player.y);
+  }
+
+  private footHint(): string | null {
+    if (this.driving) return null;
+    const plot = this.farm.plotAtWorld(this.player.x, this.player.y);
+    if (!plot) return null;
+    if (plot.state === "empty") return "Press E to plant";
+    if (plot.state === "ripe") return "Press E to harvest";
+    return "Growing…";
+  }
+
+  private addCash(amount: number, x: number, y: number) {
+    this.cash += amount;
+    const label = this.add
+      .text(x, y - 20, `+$${amount}`, {
+        fontFamily: "ui-monospace, monospace",
+        fontSize: "16px",
+        color: "#ffe08a",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(50);
+    this.tweens.add({
+      targets: label,
+      y: y - 52,
+      alpha: 0,
+      duration: 700,
+      ease: "Quad.out",
+      onComplete: () => label.destroy(),
+    });
   }
 
   private nearestVehicleLabel(): string | null {

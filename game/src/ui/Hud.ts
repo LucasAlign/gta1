@@ -7,6 +7,7 @@ export class Hud {
   private scene: Phaser.Scene;
   private prompt: Phaser.GameObjects.Text;
   private speed: Phaser.GameObjects.Text;
+  private cash: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -22,13 +23,29 @@ export class Hud {
       .setDepth(1000);
 
     scene.add
-      .text(16, 42, "WASD / arrows to move  •  Enter / Space to get in & out", {
-        fontFamily: "system-ui, sans-serif",
-        fontSize: "13px",
-        color: "#cfd3d8",
-      })
+      .text(
+        16,
+        42,
+        "WASD / arrows to move  •  Enter to get in/out  •  drive the tractor over the field to farm",
+        {
+          fontFamily: "system-ui, sans-serif",
+          fontSize: "13px",
+          color: "#cfd3d8",
+        }
+      )
       .setScrollFactor(0)
       .setDepth(1000);
+
+    this.cash = scene.add
+      .text(0, 14, "$0", {
+        fontFamily: "ui-monospace, monospace",
+        fontSize: "20px",
+        color: "#ffe08a",
+        fontStyle: "bold",
+      })
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setOrigin(1, 0);
 
     this.prompt = scene.add
       .text(0, 0, "", {
@@ -63,11 +80,19 @@ export class Hud {
     const h = this.scene.scale.height;
     this.prompt.setPosition(w / 2, h - 24);
     this.speed.setPosition(w - 16, h - 16);
+    this.cash.setPosition(w - 16, 14);
   }
 
-  update(driving: Vehicle | null, nearbyLabel: string | null) {
+  update(
+    driving: Vehicle | null,
+    nearbyLabel: string | null,
+    cash: number,
+    footHint: string | null
+  ) {
+    this.cash.setText(`$${cash}`);
+
     if (driving) {
-      this.prompt.setText("").setVisible(false);
+      this.prompt.setVisible(false);
       const kmh = Math.round((driving.speed / 10) * 3.6);
       this.speed
         .setText(`${driving.spec.label.toUpperCase()}   ${kmh} km/h`)
@@ -76,6 +101,8 @@ export class Hud {
       this.speed.setVisible(false);
       if (nearbyLabel) {
         this.prompt.setText(`Press Enter to drive the ${nearbyLabel}`).setVisible(true);
+      } else if (footHint) {
+        this.prompt.setText(footHint).setVisible(true);
       } else {
         this.prompt.setVisible(false);
       }
