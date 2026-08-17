@@ -11,6 +11,8 @@ export interface HudState {
   shopPrompt: string | null;
   herd: { penned: number; total: number } | null;
   seederCrop: string | null;
+  streak: number;
+  streakMult: number;
 }
 
 // Screen-fixed heads-up display. Uses setScrollFactor(0) so it never moves with
@@ -23,6 +25,7 @@ export class Hud {
   private produce: Phaser.GameObjects.Text;
   private objective: Phaser.GameObjects.Text;
   private seeder: Phaser.GameObjects.Text;
+  private streak: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -94,6 +97,17 @@ export class Hud {
       .setScrollFactor(0)
       .setDepth(1000);
 
+    this.streak = scene.add
+      .text(0, 66, "", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "15px",
+        color: "#ffce54",
+        fontStyle: "bold",
+      })
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setOrigin(1, 0);
+
     this.prompt = scene.add
       .text(0, 0, "", {
         fontFamily: "system-ui, sans-serif",
@@ -129,6 +143,7 @@ export class Hud {
     this.speed.setPosition(w - 16, h - 16);
     this.cash.setPosition(w - 16, 14);
     this.produce.setPosition(w - 16, 40);
+    this.streak.setPosition(w - 16, 64);
   }
 
   update(s: HudState) {
@@ -136,6 +151,13 @@ export class Hud {
     this.produce.setText(s.produce > 0 ? `🌾 ${s.produce} crops` : "");
     if (s.seederCrop) this.seeder.setText(`🌱 Seeder: ${s.seederCrop}  (C to change)`).setVisible(true);
     else this.seeder.setVisible(false);
+
+    if (s.streak >= 2) {
+      const pct = Math.round((s.streakMult - 1) * 100);
+      this.streak.setText(`🔥 Streak x${s.streak}  +${pct}%`).setVisible(true);
+    } else {
+      this.streak.setVisible(false);
+    }
     // In the pasture, the objective line becomes the herding tracker.
     if (s.herd) {
       this.objective.setText(`◆ Herd the cows into the pen — ${s.herd.penned}/${s.herd.total}`);

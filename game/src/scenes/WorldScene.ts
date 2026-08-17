@@ -30,6 +30,15 @@ import { MissionManager } from "../missions/MissionManager";
 import { Shop } from "../shop/Shop";
 import { FireDept } from "../jobs/FireDept";
 import { Police } from "../jobs/Police";
+import { Progression, JobType } from "../jobs/Progression";
+
+const JOB_LABEL: Record<JobType, string> = {
+  fire: "Fire Dept",
+  police: "Police",
+  delivery: "Delivery",
+  herd: "Herding",
+  farm: "Farm",
+};
 
 type BlockKind = "building" | "park" | "farm" | "pasture";
 
@@ -55,6 +64,7 @@ export class WorldScene extends Phaser.Scene {
   private shop!: Shop;
   private fireDept!: FireDept;
   private police!: Police;
+  private progression = new Progression();
   private buildingSites: Array<{ x: number; y: number }> = [];
 
   private keys!: {
@@ -86,6 +96,7 @@ export class WorldScene extends Phaser.Scene {
     this.cash = 0;
     this.produce = {};
     this.seederCropIndex = 0;
+    this.progression = new Progression();
 
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -449,29 +460,22 @@ export class WorldScene extends Phaser.Scene {
       this.player.walk(dx, dy);
     }
 
+    this.progression.update(dt);
+
     // Missions + herding track whichever entity the player controls.
     const actor = this.driving ?? this.player;
     const earned = this.missions.update(actor.x, actor.y);
-    if (earned > 0) this.addCash(earned, actor.x, actor.y);
+    if (earned > 0) this.awardJob("delivery", earned, actor.x, actor.y, "Delivered!");
 
     const herdEarned = this.pasture.update(dt, actor.x, actor.y);
-    if (herdEarned > 0) {
-      this.addCash(herdEarned, actor.x, actor.y);
-      this.flashText("Herd penned!", actor.x, actor.y, "#eaf3d8");
-    }
+    if (herdEarned > 0) this.awardJob("herd", herdEarned, actor.x, actor.y, "Herd penned!");
 
     // Duty jobs run off whichever emergency vehicle you're driving.
     const duty = this.driving?.spec.emergency ?? null;
     const fireEarned = this.fireDept.update(dt, duty === "fire", actor);
-    if (fireEarned > 0) {
-      this.addCash(fireEarned, actor.x, actor.y);
-      this.flashText("Fire out!", actor.x, actor.y, "#ffb37a");
-    }
+    if (fireEarned > 0) this.awardJob("fire", fireEarned, actor.x, actor.y, "Fire out!");
     const busted = this.police.update(dt, duty === "police", actor);
-    if (busted > 0) {
-      this.addCash(busted, actor.x, actor.y);
-      this.flashText("Suspect busted!", actor.x, actor.y, "#9ec5ff");
-    }
+    if (busted > 0) this.awardJob("police", busted, actor.x, actor.y, "Suspect busted!");
 
     const markers = [
       this.missions.minimapMarker,
@@ -501,23 +505,28 @@ export class WorldScene extends Phaser.Scene {
       shopPrompt: stationPrompt,
       herd: this.pasture.contains(actor.x, actor.y) ? this.pasture.progress : null,
       seederCrop,
+      streak: this.progression.streakCount,
+      streakMult: this.progression.streakMult,
     });
   }
 
-  // Objective line reflects the current duty, falling back to the delivery job.
+  // Objective line reflects the current duty, falling back to the delivery job,
+  // with the relevant job rank appended.
   private dutyObjective(duty: "fire" | "police" | null): string {
     if (duty === "fire") {
       const n = this.fireDept.activeCount;
-      return n > 0
+      const base = n > 0
         ? `🚒 Fire Dept — put out the fire (${n} active)`
         : "🚒 Fire Dept — on call, watch for fires";
+      return `${base}   · Rank ${this.progression.rankOf("fire")}`;
     }
     if (duty === "police") {
-      return this.police.hasSuspect
+      const base = this.police.hasSuspect
         ? "🚓 Police — chase down the suspect"
         : "🚓 Police — on patrol, awaiting a call";
+      return `${base}   · Rank ${this.progression.rankOf("police")}`;
     }
-    return this.missions.objective;
+    return `${this.missions.objective}   · Rank ${this.progression.rankOf("delivery")}`;
   }
 
   private tryBuy() {
@@ -580,8 +589,22 @@ export class WorldScene extends Phaser.Scene {
     if (this.produceCount() <= 0) return;
     const res = this.market.sell(this.produce);
     this.produce = {};
-    this.cash += res.cash;
-    this.flashText(`+$${res.cash}${res.contractDone ? "  Contract!" : ""}`, actor.x, actor.y, "#ffe08a");
+    this.cash += res.cash; // spot price (not scaled)
+    this.flashText(`+$${res.cash}`, actor.x, actor.y - 18, "#ffe08a");
+    if (res.contractDone) this.awardJob("farm", res.bonus, actor.x, actor.y, "Contract!");
+  }
+
+  // Scale a job's base reward by rank + streak, bank it, and flash feedback.
+  private awardJob(job: JobType, base: number, x: number, y: number, eventMsg: string) {
+    const rec = this.progression.record(job, base);
+    this.cash += rec.reward;
+    const streakTag = rec.streak >= 2 ? `  🔥x${rec.streak}` : "";
+    this.flashText(`${eventMsg}  +$${rec.reward}${streakTag}`, x, y, "#ffe08a");
+    if (rec.rankedUp) {
+      this.time.delayedCall(140, () =>
+        this.flashText(`${JOB_LABEL[job]} — Rank ${rec.rank}!`, x, y, "#c9b3ff")
+      );
+    }
   }
 
   // Contextual field hint: which tractor a plot needs, or the on-foot action.
@@ -613,27 +636,6 @@ export class WorldScene extends Phaser.Scene {
         return this.driving ? "Needs the Harvester" : "Press E to harvest";
     }
     return needLabel[plot.need] ?? null;
-  }
-
-  private addCash(amount: number, x: number, y: number) {
-    this.cash += amount;
-    const label = this.add
-      .text(x, y - 20, `+$${amount}`, {
-        fontFamily: "ui-monospace, monospace",
-        fontSize: "16px",
-        color: "#ffe08a",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5, 1)
-      .setDepth(50);
-    this.tweens.add({
-      targets: label,
-      y: y - 52,
-      alpha: 0,
-      duration: 700,
-      ease: "Quad.out",
-      onComplete: () => label.destroy(),
-    });
   }
 
   private nearestVehicleLabel(): string | null {

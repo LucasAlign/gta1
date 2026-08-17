@@ -99,6 +99,16 @@ export const POLICE_JOB = {
   respawnDelay: 2.5, // seconds before a new suspect after a bust
 };
 
+// Progression: each job gains rank with completions (raising its base reward),
+// and a global streak multiplies rewards for back-to-back completions.
+export const PROGRESSION = {
+  xpPerRank: 3, // completions per rank
+  rankBonus: 0.15, // +15% reward per rank above 1
+  streakWindow: 12, // seconds a streak stays alive between completions
+  streakStep: 0.12, // +12% reward per streak step
+  streakCap: 6, // max streak steps counted
+};
+
 export const HERD = {
   cows: 4,
   reward: 70,
