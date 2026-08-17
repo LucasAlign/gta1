@@ -1,5 +1,7 @@
 import Phaser from "phaser";
-import { COLORS, CROPS, DEFAULT_CROP, FARM_MARKET } from "../config";
+import { COLORS, CROPS, FARM_MARKET } from "../config";
+
+export type Produce = Record<string, number>;
 
 export interface SellResult {
   sold: number;
@@ -7,12 +9,21 @@ export interface SellResult {
   contractDone: boolean;
 }
 
-// The farmers' market. Sell harvested produce here for cash; each sale also
-// counts toward a rolling delivery contract that pays a bonus when filled.
+function countOf(p: Produce): number {
+  return Object.values(p).reduce((a, b) => a + b, 0);
+}
+function valueOf(p: Produce): number {
+  let v = 0;
+  for (const [k, n] of Object.entries(p)) v += n * (CROPS[k]?.value ?? 0);
+  return v;
+}
+
+// The farmers' market. Sell a mixed produce inventory here for cash (each crop
+// at its own price); each sale also counts toward a rolling delivery contract
+// that pays a bonus when filled.
 export class Market {
   readonly x: number;
   readonly y: number;
-  private unitPrice = CROPS[DEFAULT_CROP].value;
   private need = 0;
   private delivered = 0;
 
@@ -55,20 +66,22 @@ export class Market {
     return Phaser.Math.Distance.Between(px, py, this.x, this.y) < FARM_MARKET.radius;
   }
 
-  promptText(produce: number): string {
+  promptText(produce: Produce): string {
     const contract = `Contract ${this.delivered}/${this.need}`;
-    if (produce > 0) {
-      return `Press G — sell ${produce} crop${produce === 1 ? "" : "s"} ($${produce * this.unitPrice})  •  ${contract}`;
+    const n = countOf(produce);
+    if (n > 0) {
+      return `Press G — sell ${n} crop${n === 1 ? "" : "s"} ($${valueOf(produce)})  •  ${contract}`;
     }
     return `Farmers' Market  •  ${contract}  (harvest crops to sell)`;
   }
 
-  // Sell all carried produce. Returns cash (spot price + any contract bonus).
-  sell(produce: number): SellResult {
-    if (produce <= 0) return { sold: 0, cash: 0, contractDone: false };
+  // Sell the whole produce inventory. Returns cash (spot price + any bonus).
+  sell(produce: Produce): SellResult {
+    const n = countOf(produce);
+    if (n <= 0) return { sold: 0, cash: 0, contractDone: false };
 
-    let cash = produce * this.unitPrice;
-    this.delivered += produce;
+    let cash = valueOf(produce);
+    this.delivered += n;
 
     let contractDone = false;
     if (this.delivered >= this.need) {
@@ -77,7 +90,7 @@ export class Market {
       this.delivered -= this.need; // carry overflow into the next contract
       this.need = Phaser.Math.Between(FARM_MARKET.contractMin, FARM_MARKET.contractMax);
     }
-    return { sold: produce, cash, contractDone };
+    return { sold: n, cash, contractDone };
   }
 
   get minimapMarker() {

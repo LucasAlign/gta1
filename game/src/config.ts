@@ -166,9 +166,30 @@ export const CROPS: Record<string, CropSpec> = {
     leafColor: 0x3f9e3f,
     ripeColor: 0xe8792b,
   },
+  wheat: {
+    key: "wheat",
+    label: "Wheat",
+    stages: 3,
+    growSeconds: 2.2, // fast, cheap
+    value: 9,
+    sproutColor: 0xbcd06a,
+    leafColor: 0xcbb24a,
+    ripeColor: 0xe9c46a,
+  },
+  pumpkin: {
+    key: "pumpkin",
+    label: "Pumpkin",
+    stages: 3,
+    growSeconds: 6.5, // slow, valuable
+    value: 34,
+    sproutColor: 0x6fae54,
+    leafColor: 0x3f9e3f,
+    ripeColor: 0xe8781f,
+  },
 };
 
-// The crop planted when the tractor tills a fresh plot (data-driven default).
+// Order the Seeder cycles through, and the default crop for a fresh plot.
+export const CROP_ORDER = ["carrot", "wheat", "pumpkin"];
 export const DEFAULT_CROP = "carrot";
 
 export const VEHICLES: Record<string, VehicleSpec> = {

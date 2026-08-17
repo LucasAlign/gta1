@@ -10,6 +10,7 @@ export interface HudState {
   objective: string;
   shopPrompt: string | null;
   herd: { penned: number; total: number } | null;
+  seederCrop: string | null;
 }
 
 // Screen-fixed heads-up display. Uses setScrollFactor(0) so it never moves with
@@ -21,6 +22,7 @@ export class Hud {
   private cash: Phaser.GameObjects.Text;
   private produce: Phaser.GameObjects.Text;
   private objective: Phaser.GameObjects.Text;
+  private seeder: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -81,6 +83,17 @@ export class Hud {
       .setDepth(1000)
       .setOrigin(1, 0);
 
+    this.seeder = scene.add
+      .text(16, 88, "", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "13px",
+        color: "#cfeeb0",
+        backgroundColor: "#2e7d3266",
+        padding: { x: 8, y: 4 },
+      })
+      .setScrollFactor(0)
+      .setDepth(1000);
+
     this.prompt = scene.add
       .text(0, 0, "", {
         fontFamily: "system-ui, sans-serif",
@@ -121,6 +134,8 @@ export class Hud {
   update(s: HudState) {
     this.cash.setText(`$${s.cash}`);
     this.produce.setText(s.produce > 0 ? `🌾 ${s.produce} crops` : "");
+    if (s.seederCrop) this.seeder.setText(`🌱 Seeder: ${s.seederCrop}  (C to change)`).setVisible(true);
+    else this.seeder.setVisible(false);
     // In the pasture, the objective line becomes the herding tracker.
     if (s.herd) {
       this.objective.setText(`◆ Herd the cows into the pen — ${s.herd.penned}/${s.herd.total}`);

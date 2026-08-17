@@ -68,9 +68,9 @@ class Plot {
     }
   }
 
-  harvest(scene: Phaser.Scene): number {
-    if (this.state !== "ripe" || !this.crop) return 0;
-    const value = this.crop.value;
+  harvest(scene: Phaser.Scene): string | null {
+    if (this.state !== "ripe" || !this.crop) return null;
+    const cropKey = this.crop.key;
     const plant = this.plant;
     scene.tweens.add({
       targets: plant,
@@ -85,13 +85,14 @@ class Plot {
     this.state = "untilled";
     this.stage = 0;
     this.crop = null;
-    return value;
+    return cropKey;
   }
 }
 
 export interface FieldResult {
   changed: boolean;
   produce: number; // crops gained (harvest only) — sold later at the market
+  cropKey?: string; // which crop was harvested
 }
 
 // Owns every crop plot on the farm field and runs the plow/seed/grow/harvest loop.
@@ -115,17 +116,21 @@ export class FarmField {
   }
 
   // Apply a job to the plot under (x, y). `hand` is on-foot: harvest only.
-  // Harvesting yields produce (sold later at the market), not instant cash.
-  interact(x: number, y: number, job: FarmJob | "hand"): FieldResult {
+  // `cropKey` chooses what the Seeder plants. Harvesting yields produce (sold
+  // later at the market), not instant cash.
+  interact(x: number, y: number, job: FarmJob | "hand", cropKey: string = DEFAULT_CROP): FieldResult {
     const plot = this.plotAtWorld(x, y);
     if (!plot) return { changed: false, produce: 0 };
 
     if (job === "plow") return { changed: plot.till(), produce: 0 };
-    if (job === "seed") return { changed: plot.seed(this.scene, CROPS[DEFAULT_CROP]), produce: 0 };
+    if (job === "seed") {
+      const spec = CROPS[cropKey] ?? CROPS[DEFAULT_CROP];
+      return { changed: plot.seed(this.scene, spec), produce: 0 };
+    }
 
     // harvest or hand: one crop per ripe plot
-    const reaped = plot.harvest(this.scene) > 0;
-    return { changed: reaped, produce: reaped ? 1 : 0 };
+    const reaped = plot.harvest(this.scene);
+    return { changed: reaped !== null, produce: reaped ? 1 : 0, cropKey: reaped ?? undefined };
   }
 
   get plotCount(): number {

@@ -4,6 +4,8 @@ import {
   BLOCKS_Y,
   BLOCK_TILES,
   COLORS,
+  CROPS,
+  CROP_ORDER,
   PERIOD,
   ROAD_TILES,
   TILE,
@@ -44,7 +46,8 @@ export class WorldScene extends Phaser.Scene {
   private market!: Market;
   private farmTiles: Array<{ tx: number; ty: number }> = [];
   private cash = 0;
-  private produce = 0;
+  private produce: Record<string, number> = {};
+  private seederCropIndex = 0;
   private traffic!: Traffic;
   private pedestrians!: Pedestrians;
   private minimap!: Minimap;
@@ -67,6 +70,7 @@ export class WorldScene extends Phaser.Scene {
     e: Phaser.Input.Keyboard.Key;
     b: Phaser.Input.Keyboard.Key;
     gkey: Phaser.Input.Keyboard.Key;
+    c: Phaser.Input.Keyboard.Key;
   };
 
   constructor() {
@@ -80,7 +84,8 @@ export class WorldScene extends Phaser.Scene {
     this.buildingSites = [];
     this.driving = null;
     this.cash = 0;
-    this.produce = 0;
+    this.produce = {};
+    this.seederCropIndex = 0;
 
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -158,6 +163,7 @@ export class WorldScene extends Phaser.Scene {
       e: kb.addKey("E"),
       b: kb.addKey("B"),
       gkey: kb.addKey("G"),
+      c: kb.addKey("C"),
     };
     // Space + F also toggle vehicle, and prevent page scroll.
     kb.addKey("SPACE").on("down", () => this.toggleVehicle());
@@ -169,6 +175,10 @@ export class WorldScene extends Phaser.Scene {
     this.keys.b.on("down", () => this.tryBuy());
     // G sells produce at the farmers' market.
     this.keys.gkey.on("down", () => this.sellAtMarket());
+    // C cycles which crop the Seeder plants.
+    this.keys.c.on("down", () => {
+      this.seederCropIndex = (this.seederCropIndex + 1) % CROP_ORDER.length;
+    });
 
     this.hud = new Hud(this);
     this.minimap = new Minimap(this);
@@ -430,8 +440,8 @@ export class WorldScene extends Phaser.Scene {
       // a plot: the Plow tills, the Seeder plants, the Harvester reaps.
       const job = this.driving.spec.farmJob;
       if (job && this.driving.speed > 8) {
-        const r = this.farm.interact(this.driving.x, this.driving.y, job);
-        if (r.produce > 0) this.gainProduce(r.produce, this.driving.x, this.driving.y);
+        const r = this.farm.interact(this.driving.x, this.driving.y, job, this.seederCropKey());
+        if (r.produce > 0) this.gainProduce(r.cropKey!, r.produce, this.driving.x, this.driving.y);
       }
     } else {
       const dx = (right ? 1 : 0) + (left ? -1 : 0);
@@ -479,15 +489,18 @@ export class WorldScene extends Phaser.Scene {
     if (this.shop.contains(actor.x, actor.y)) stationPrompt = this.shop.promptText(this.cash);
     else if (this.market.contains(actor.x, actor.y)) stationPrompt = this.market.promptText(this.produce);
 
+    const seederCrop = this.driving?.spec.farmJob === "seed" ? CROPS[this.seederCropKey()].label : null;
+
     this.hud.update({
       driving: this.driving,
       nearbyVehicle: this.nearestVehicleLabel(),
       cash: this.cash,
-      produce: this.produce,
+      produce: this.produceCount(),
       fieldHint: this.fieldHint(),
       objective: this.dutyObjective(duty),
       shopPrompt: stationPrompt,
       herd: this.pasture.contains(actor.x, actor.y) ? this.pasture.progress : null,
+      seederCrop,
     });
   }
 
@@ -544,20 +557,29 @@ export class WorldScene extends Phaser.Scene {
   private footFarm() {
     if (this.driving) return;
     const r = this.farm.interact(this.player.x, this.player.y, "hand");
-    if (r.produce > 0) this.gainProduce(r.produce, this.player.x, this.player.y);
+    if (r.produce > 0) this.gainProduce(r.cropKey!, r.produce, this.player.x, this.player.y);
   }
 
-  private gainProduce(n: number, x: number, y: number) {
-    this.produce += n;
-    this.flashText(`+${n} crop`, x, y, "#a6e05a");
+  private seederCropKey(): string {
+    return CROP_ORDER[this.seederCropIndex];
+  }
+
+  private produceCount(): number {
+    return Object.values(this.produce).reduce((a, b) => a + b, 0);
+  }
+
+  private gainProduce(cropKey: string, n: number, x: number, y: number) {
+    this.produce[cropKey] = (this.produce[cropKey] ?? 0) + n;
+    const label = CROPS[cropKey]?.label ?? "crop";
+    this.flashText(`+${n} ${label}`, x, y, "#a6e05a");
   }
 
   private sellAtMarket() {
     const actor = this.driving ?? this.player;
     if (!this.market.contains(actor.x, actor.y)) return;
-    if (this.produce <= 0) return;
+    if (this.produceCount() <= 0) return;
     const res = this.market.sell(this.produce);
-    this.produce = 0;
+    this.produce = {};
     this.cash += res.cash;
     this.flashText(`+$${res.cash}${res.contractDone ? "  Contract!" : ""}`, actor.x, actor.y, "#ffe08a");
   }
