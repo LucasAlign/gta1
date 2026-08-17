@@ -27,6 +27,7 @@ import { Minimap } from "../ui/Minimap";
 import { MissionManager } from "../missions/MissionManager";
 import { Shop } from "../shop/Shop";
 import { FireDept } from "../jobs/FireDept";
+import { Police } from "../jobs/Police";
 
 type BlockKind = "building" | "park" | "farm" | "pasture";
 
@@ -50,6 +51,7 @@ export class WorldScene extends Phaser.Scene {
   private missions!: MissionManager;
   private shop!: Shop;
   private fireDept!: FireDept;
+  private police!: Police;
   private buildingSites: Array<{ x: number; y: number }> = [];
 
   private keys!: {
@@ -119,6 +121,8 @@ export class WorldScene extends Phaser.Scene {
 
     // Firefighter job: fires break out on buildings while on fire-truck duty.
     this.fireDept = new FireDept(this, this.buildingSites);
+    // Police job: chase a fleeing suspect while on police-car duty.
+    this.police = new Police(this);
 
     this.physics.add.collider(this.player, this.buildings);
     for (const v of this.vehicles) {
@@ -309,6 +313,8 @@ export class WorldScene extends Phaser.Scene {
     // Duty-vehicle stations. Enter the vehicle to go on duty for that job.
     const fs = intersectionPx(BLOCKS_X, 1);
     this.parkStation(VEHICLES.firetruck, fs.x, fs.y, "FIRE STATION", 0xd12f2f);
+    const ps = intersectionPx(0, BLOCKS_Y);
+    this.parkStation(VEHICLES.police, ps.x, ps.y, "POLICE", 0x2f6fd0);
   }
 
   // Parks a labelled duty vehicle at a station slab.
@@ -445,20 +451,28 @@ export class WorldScene extends Phaser.Scene {
     }
 
     // Duty jobs run off whichever emergency vehicle you're driving.
-    const onFireDuty = this.driving?.spec.emergency === "fire";
-    const fireEarned = this.fireDept.update(dt, onFireDuty, actor);
+    const duty = this.driving?.spec.emergency ?? null;
+    const fireEarned = this.fireDept.update(dt, duty === "fire", actor);
     if (fireEarned > 0) {
       this.addCash(fireEarned, actor.x, actor.y);
       this.flashText("Fire out!", actor.x, actor.y, "#ffb37a");
     }
+    const busted = this.police.update(dt, duty === "police", actor);
+    if (busted > 0) {
+      this.addCash(busted, actor.x, actor.y);
+      this.flashText("Suspect busted!", actor.x, actor.y, "#9ec5ff");
+    }
 
-    this.minimap.update(actor, [
+    const markers = [
       this.missions.minimapMarker,
       this.shop.minimapMarker,
       this.pasture.minimapMarker,
       this.market.minimapMarker,
       ...this.fireDept.minimapMarkers,
-    ]);
+    ];
+    const suspectMarker = this.police.minimapMarker;
+    if (suspectMarker) markers.push(suspectMarker);
+    this.minimap.update(actor, markers);
 
     // Shop and market share the bottom prompt; whichever you're standing at wins.
     let stationPrompt: string | null = null;
@@ -471,19 +485,24 @@ export class WorldScene extends Phaser.Scene {
       cash: this.cash,
       produce: this.produce,
       fieldHint: this.fieldHint(),
-      objective: this.dutyObjective(onFireDuty),
+      objective: this.dutyObjective(duty),
       shopPrompt: stationPrompt,
       herd: this.pasture.contains(actor.x, actor.y) ? this.pasture.progress : null,
     });
   }
 
   // Objective line reflects the current duty, falling back to the delivery job.
-  private dutyObjective(onFireDuty: boolean): string {
-    if (onFireDuty) {
+  private dutyObjective(duty: "fire" | "police" | null): string {
+    if (duty === "fire") {
       const n = this.fireDept.activeCount;
       return n > 0
         ? `🚒 Fire Dept — put out the fire (${n} active)`
         : "🚒 Fire Dept — on call, watch for fires";
+    }
+    if (duty === "police") {
+      return this.police.hasSuspect
+        ? "🚓 Police — chase down the suspect"
+        : "🚓 Police — on patrol, awaiting a call";
     }
     return this.missions.objective;
   }

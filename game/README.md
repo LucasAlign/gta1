@@ -30,8 +30,21 @@ scrolling, no page chrome.
 
 - **WASD / Arrow keys** — walk (on foot) or drive (in a vehicle)
 - **Enter / Space / F** — get in / out of the nearest vehicle
-- **E** — on foot, plant/harvest the plot you're standing on
+- **E** — on foot, harvest the ripe plot you're standing on
 - **B** — buy the tractor upgrade when standing at the shop
+- **G** — sell produce at the farmers' market
+
+## Economy & jobs
+
+- **Farmers' Market** (south of the field) — harvesting fills your **produce**
+  stock; press **G** at the market to sell it, filling a rolling **delivery
+  contract** that pays a bonus when completed.
+- **Duty jobs** — drive a duty vehicle from its station to go on duty:
+  - **Fire Truck** (Fire Station) → fires break out on buildings; park near one
+    to spray it out for a reward.
+  - **Police Car** (Police station) → a suspect flees the road network; chase
+    and close in to bust them.
+- The HUD objective line and minimap markers follow whatever job you're on.
 
 ## Living world
 
