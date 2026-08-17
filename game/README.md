@@ -31,6 +31,19 @@ scrolling, no page chrome.
 - **WASD / Arrow keys** — walk (on foot) or drive (in a vehicle)
 - **Enter / Space / F** — get in / out of the nearest vehicle
 - **E** — on foot, plant/harvest the plot you're standing on
+- **B** — buy the tractor upgrade when standing at the shop
+
+## Living world
+
+- **Traffic** — AI cars follow the road lattice with right-hand lanes; bump
+  them in a vehicle or on foot and they recover their lane.
+- **Pedestrians** — stroll the sidewalk rings around blocks.
+- **Minimap** (bottom-left) — baked world grid + live markers for you, the
+  active mission objective, and the shop.
+- **Missions** — a rolling delivery loop: drive to the yellow pickup marker,
+  then the green drop-off marker, for cash. A new contract starts immediately.
+- **Shop** ($ marker) — spend farm + mission cash on the **Tractor Turbo**
+  upgrade (more speed and acceleration, price climbs each level).
 
 ## Farming loop
 

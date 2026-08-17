@@ -14,6 +14,7 @@ export class BootScene extends Phaser.Scene {
     this.makeRoadTile();
     this.makeSidewalkTile();
     this.makePlayer();
+    this.makePed();
 
     for (const spec of Object.values(VEHICLES)) {
       this.makeVehicle(spec);
@@ -67,6 +68,15 @@ export class BootScene extends Phaser.Scene {
     // facing nub (points +x / east, matching rotation=0)
     g.fillStyle(COLORS.playerOutline, 1).fillCircle(size - 4, size / 2, 3);
     g.generateTexture("player", size, size);
+    g.destroy();
+  }
+
+  private makePed() {
+    const size = 14;
+    const g = this.add.graphics();
+    g.fillStyle(0x2a1e26, 1).fillCircle(size / 2, size / 2, size / 2);
+    g.fillStyle(COLORS.ped, 1).fillCircle(size / 2, size / 2, size / 2 - 2);
+    g.generateTexture("ped", size, size);
     g.destroy();
   }
 

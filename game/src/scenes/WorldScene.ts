@@ -4,6 +4,7 @@ import {
   BLOCKS_Y,
   BLOCK_TILES,
   COLORS,
+  PERIOD,
   ROAD_TILES,
   TILE,
   VEHICLES,
@@ -11,13 +12,17 @@ import {
   WORLD_TILES_X,
   WORLD_TILES_Y,
   WORLD_W,
+  intersectionPx,
 } from "../config";
 import { Vehicle } from "../entities/Vehicle";
 import { Player } from "../entities/Player";
 import { Hud } from "../ui/Hud";
 import { FarmField } from "../farming/FarmField";
-
-const PERIOD = BLOCK_TILES + ROAD_TILES;
+import { Traffic } from "../traffic/Traffic";
+import { Pedestrians } from "../npc/Pedestrians";
+import { Minimap } from "../ui/Minimap";
+import { MissionManager } from "../missions/MissionManager";
+import { Shop } from "../shop/Shop";
 
 type BlockKind = "building" | "park" | "farm";
 
@@ -30,6 +35,11 @@ export class WorldScene extends Phaser.Scene {
   private farm!: FarmField;
   private farmTiles: Array<{ tx: number; ty: number }> = [];
   private cash = 0;
+  private traffic!: Traffic;
+  private pedestrians!: Pedestrians;
+  private minimap!: Minimap;
+  private missions!: MissionManager;
+  private shop!: Shop;
 
   private keys!: {
     up: Phaser.Input.Keyboard.Key;
@@ -42,6 +52,7 @@ export class WorldScene extends Phaser.Scene {
     d: Phaser.Input.Keyboard.Key;
     enter: Phaser.Input.Keyboard.Key;
     e: Phaser.Input.Keyboard.Key;
+    b: Phaser.Input.Keyboard.Key;
   };
 
   constructor() {
@@ -69,12 +80,22 @@ export class WorldScene extends Phaser.Scene {
 
     this.spawnVehicles();
 
+    // Ambient life + systems.
+    this.traffic = new Traffic(this, 14);
+    this.pedestrians = new Pedestrians(this, 20);
+    this.missions = new MissionManager(this);
+    const shopPos = intersectionPx(1, Math.floor(BLOCKS_Y / 2));
+    this.shop = new Shop(this, shopPos.x, shopPos.y);
+
     this.physics.add.collider(this.player, this.buildings);
     for (const v of this.vehicles) {
       this.physics.add.collider(v, this.buildings);
     }
     this.physics.add.collider(this.vehicles, this.vehicles);
     this.physics.add.collider(this.player, this.vehicles);
+    // You can bump traffic in a vehicle or on foot; traffic recovers its lane.
+    this.physics.add.collider(this.vehicles, this.traffic.group);
+    this.physics.add.collider(this.player, this.traffic.group);
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
     this.cameras.main.setZoom(1);
@@ -91,6 +112,7 @@ export class WorldScene extends Phaser.Scene {
       d: kb.addKey("D"),
       enter: kb.addKey("ENTER"),
       e: kb.addKey("E"),
+      b: kb.addKey("B"),
     };
     // Space + F also toggle vehicle, and prevent page scroll.
     kb.addKey("SPACE").on("down", () => this.toggleVehicle());
@@ -98,8 +120,11 @@ export class WorldScene extends Phaser.Scene {
     this.keys.enter.on("down", () => this.toggleVehicle());
     // On foot, E plants/harvests the plot you're standing on.
     this.keys.e.on("down", () => this.footFarm());
+    // B buys a tractor upgrade when near the shop.
+    this.keys.b.on("down", () => this.tryBuy());
 
     this.hud = new Hud(this);
+    this.minimap = new Minimap(this);
   }
 
   // ---- world construction -------------------------------------------------
@@ -286,6 +311,8 @@ export class WorldScene extends Phaser.Scene {
     const down = this.keys.down.isDown || this.keys.s.isDown;
 
     this.farm.update(dt);
+    this.traffic.update();
+    this.pedestrians.update(dt);
 
     if (this.driving) {
       const throttle = (up ? 1 : 0) + (down ? -1 : 0);
@@ -302,7 +329,53 @@ export class WorldScene extends Phaser.Scene {
       this.player.walk(dx, dy);
     }
 
-    this.hud.update(this.driving, this.nearestVehicleLabel(), this.cash, this.footHint());
+    // Missions track whichever entity the player controls.
+    const actor = this.driving ?? this.player;
+    const earned = this.missions.update(actor.x, actor.y);
+    if (earned > 0) this.addCash(earned, actor.x, actor.y);
+
+    this.minimap.update(actor, [this.missions.minimapMarker, this.shop.minimapMarker]);
+
+    this.hud.update({
+      driving: this.driving,
+      nearbyVehicle: this.nearestVehicleLabel(),
+      cash: this.cash,
+      footHint: this.footHint(),
+      objective: this.missions.objective,
+      shopPrompt: this.shop.contains(actor.x, actor.y) ? this.shop.promptText(this.cash) : null,
+    });
+  }
+
+  private tryBuy() {
+    const actor = this.driving ?? this.player;
+    if (!this.shop.contains(actor.x, actor.y)) return;
+    const res = this.shop.buy(this.cash);
+    if (res.ok) {
+      this.cash -= res.cost;
+      this.flashText(res.message, actor.x, actor.y, "#c9b3ff");
+    } else {
+      this.flashText(res.message, actor.x, actor.y, "#ff9b9b");
+    }
+  }
+
+  private flashText(text: string, x: number, y: number, color: string) {
+    const label = this.add
+      .text(x, y - 24, text, {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "15px",
+        color,
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(50);
+    this.tweens.add({
+      targets: label,
+      y: y - 58,
+      alpha: 0,
+      duration: 900,
+      ease: "Quad.out",
+      onComplete: () => label.destroy(),
+    });
   }
 
   // On-foot plant/harvest of the plot underfoot (E key).

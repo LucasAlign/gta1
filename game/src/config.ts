@@ -16,6 +16,24 @@ export const WORLD_TILES_Y = BLOCKS_Y * (BLOCK_TILES + ROAD_TILES) + ROAD_TILES;
 export const WORLD_W = WORLD_TILES_X * TILE;
 export const WORLD_H = WORLD_TILES_Y * TILE;
 
+// Block+road repeat period, in tiles. Shared by every system that reasons about
+// the road grid (traffic, minimap, missions).
+export const PERIOD = BLOCK_TILES + ROAD_TILES;
+
+// The road network is a lattice of intersections. There's one vertical road
+// before each block plus a trailing one, so the intersection grid is
+// (BLOCKS + 1) in each axis.
+export const INTERSECTIONS_X = BLOCKS_X + 1;
+export const INTERSECTIONS_Y = BLOCKS_Y + 1;
+
+// World-pixel center of intersection (ix, iy) — the middle of the 2-tile road.
+export function intersectionPx(ix: number, iy: number): { x: number; y: number } {
+  return {
+    x: (ix * PERIOD + ROAD_TILES / 2) * TILE,
+    y: (iy * PERIOD + ROAD_TILES / 2) * TILE,
+  };
+}
+
 export const COLORS = {
   grass: 0x4a7a34,
   grassAlt: 0x53853a,
@@ -28,6 +46,32 @@ export const COLORS = {
   sidewalk: 0x9a9a92,
   player: 0xffd27f,
   playerOutline: 0x3a2a12,
+  ped: 0xd98cb3,
+  pickup: 0xf4c430,
+  dropoff: 0x3fd07a,
+  shop: 0x8e6bd0,
+};
+
+// Colors traffic cars are tinted with (picked at random per car).
+export const TRAFFIC_TINTS = [0xdedede, 0x4c6ef5, 0xf03e3e, 0x2f9e44, 0xf59f00, 0x343a40];
+
+// ---- economy / gameplay tuning -----------------------------------------
+
+export const MISSION = {
+  minReward: 40,
+  maxReward: 90,
+  pickupRadius: 70,
+  dropoffRadius: 70,
+};
+
+export const SHOP = {
+  // Tractor "turbo": each purchase raises speed/accel, price climbs.
+  turboBasePrice: 100,
+  turboPriceStep: 60,
+  turboMaxLevel: 5,
+  turboSpeedPerLevel: 55,
+  turboAccelPerLevel: 70,
+  radius: 80,
 };
 
 // A vehicle is a config, never a bespoke class — matches the handoff's

@@ -1,6 +1,15 @@
 import Phaser from "phaser";
 import { Vehicle } from "../entities/Vehicle";
 
+export interface HudState {
+  driving: Vehicle | null;
+  nearbyVehicle: string | null;
+  cash: number;
+  footHint: string | null;
+  objective: string;
+  shopPrompt: string | null;
+}
+
 // Screen-fixed heads-up display. Uses setScrollFactor(0) so it never moves with
 // the camera, and stays pinned on window resize.
 export class Hud {
@@ -8,6 +17,7 @@ export class Hud {
   private prompt: Phaser.GameObjects.Text;
   private speed: Phaser.GameObjects.Text;
   private cash: Phaser.GameObjects.Text;
+  private objective: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -26,13 +36,24 @@ export class Hud {
       .text(
         16,
         42,
-        "WASD / arrows to move  •  Enter to get in/out  •  drive the tractor over the field to farm",
+        "WASD move  •  Enter in/out  •  E farm  •  B buy at shop  •  tractor farms by driving the field",
         {
           fontFamily: "system-ui, sans-serif",
           fontSize: "13px",
           color: "#cfd3d8",
         }
       )
+      .setScrollFactor(0)
+      .setDepth(1000);
+
+    this.objective = scene.add
+      .text(16, 64, "", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "14px",
+        color: "#ffffff",
+        backgroundColor: "#00000055",
+        padding: { x: 8, y: 4 },
+      })
       .setScrollFactor(0)
       .setDepth(1000);
 
@@ -83,29 +104,26 @@ export class Hud {
     this.cash.setPosition(w - 16, 14);
   }
 
-  update(
-    driving: Vehicle | null,
-    nearbyLabel: string | null,
-    cash: number,
-    footHint: string | null
-  ) {
-    this.cash.setText(`$${cash}`);
+  update(s: HudState) {
+    this.cash.setText(`$${s.cash}`);
+    this.objective.setText(`◆ ${s.objective}`);
 
-    if (driving) {
-      this.prompt.setVisible(false);
-      const kmh = Math.round((driving.speed / 10) * 3.6);
+    if (s.driving) {
+      const kmh = Math.round((s.driving.speed / 10) * 3.6);
       this.speed
-        .setText(`${driving.spec.label.toUpperCase()}   ${kmh} km/h`)
+        .setText(`${s.driving.spec.label.toUpperCase()}   ${kmh} km/h`)
         .setVisible(true);
     } else {
       this.speed.setVisible(false);
-      if (nearbyLabel) {
-        this.prompt.setText(`Press Enter to drive the ${nearbyLabel}`).setVisible(true);
-      } else if (footHint) {
-        this.prompt.setText(footHint).setVisible(true);
-      } else {
-        this.prompt.setVisible(false);
-      }
     }
+
+    // Prompt priority: shop > enter-vehicle > farming hint.
+    let prompt: string | null = null;
+    if (s.shopPrompt) prompt = s.shopPrompt;
+    else if (!s.driving && s.nearbyVehicle) prompt = `Press Enter to drive the ${s.nearbyVehicle}`;
+    else if (!s.driving && s.footHint) prompt = s.footHint;
+
+    if (prompt) this.prompt.setText(prompt).setVisible(true);
+    else this.prompt.setVisible(false);
   }
 }
