@@ -140,6 +140,14 @@ export class BootScene extends Phaser.Scene {
       }
     }
 
+    if (spec.emergency) {
+      // roof light bar (red/blue for police, red/white for fire)
+      const a = spec.emergency === "police" ? 0x2f6fd0 : 0xffffff;
+      const b = 0xff3030;
+      g.fillStyle(a, 1).fillRect(w * 0.42, h * 0.28, w * 0.08, h * 0.44);
+      g.fillStyle(b, 1).fillRect(w * 0.5, h * 0.28, w * 0.08, h * 0.44);
+    }
+
     g.generateTexture(`veh-${spec.key}`, w + 8, h + 6);
     g.destroy();
   }

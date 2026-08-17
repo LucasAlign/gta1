@@ -26,6 +26,7 @@ import { Pedestrians } from "../npc/Pedestrians";
 import { Minimap } from "../ui/Minimap";
 import { MissionManager } from "../missions/MissionManager";
 import { Shop } from "../shop/Shop";
+import { FireDept } from "../jobs/FireDept";
 
 type BlockKind = "building" | "park" | "farm" | "pasture";
 
@@ -48,6 +49,8 @@ export class WorldScene extends Phaser.Scene {
   private minimap!: Minimap;
   private missions!: MissionManager;
   private shop!: Shop;
+  private fireDept!: FireDept;
+  private buildingSites: Array<{ x: number; y: number }> = [];
 
   private keys!: {
     up: Phaser.Input.Keyboard.Key;
@@ -72,6 +75,7 @@ export class WorldScene extends Phaser.Scene {
     // Reset per-run state so a scene restart starts clean (no accumulation).
     this.vehicles = [];
     this.farmTiles = [];
+    this.buildingSites = [];
     this.driving = null;
     this.cash = 0;
     this.produce = 0;
@@ -112,6 +116,9 @@ export class WorldScene extends Phaser.Scene {
     // Farmers' market on the road just south of the farm field.
     const marketPos = { x: this.farmCenterPx().x, y: intersectionPx(0, Math.floor(BLOCKS_Y / 2) + 1).y };
     this.market = new Market(this, marketPos.x, marketPos.y);
+
+    // Firefighter job: fires break out on buildings while on fire-truck duty.
+    this.fireDept = new FireDept(this, this.buildingSites);
 
     this.physics.add.collider(this.player, this.buildings);
     for (const v of this.vehicles) {
@@ -268,6 +275,9 @@ export class WorldScene extends Phaser.Scene {
     const rect = this.add.rectangle(cx, cy, w, h, 0x000000, 0);
     this.buildings.add(rect);
     (rect.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
+
+    // remember the rooftop as a possible fire site
+    this.buildingSites.push({ x: cx, y: cy });
   }
 
   // World-pixel center of the farm block.
@@ -295,6 +305,29 @@ export class WorldScene extends Phaser.Scene {
       v.rotation = rot;
       this.vehicles.push(v);
     }
+
+    // Duty-vehicle stations. Enter the vehicle to go on duty for that job.
+    const fs = intersectionPx(BLOCKS_X, 1);
+    this.parkStation(VEHICLES.firetruck, fs.x, fs.y, "FIRE STATION", 0xd12f2f);
+  }
+
+  // Parks a labelled duty vehicle at a station slab.
+  private parkStation(spec: VehicleSpec, x: number, y: number, label: string, color: number) {
+    this.add.rectangle(x, y, 118, 74, 0x1f242b, 0.55).setDepth(-8);
+    this.add
+      .text(x, y - 30, label, {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "11px",
+        color: "#ffffff",
+        fontStyle: "bold",
+        backgroundColor: Phaser.Display.Color.IntegerToColor(color).rgba,
+        padding: { x: 4, y: 2 },
+      })
+      .setOrigin(0.5)
+      .setDepth(-7);
+    const v = new Vehicle(this, x, y, spec);
+    v.rotation = Math.PI / 2;
+    this.vehicles.push(v);
   }
 
   // Parks the three task tractors on the road just north of the farm field,
@@ -411,11 +444,20 @@ export class WorldScene extends Phaser.Scene {
       this.flashText("Herd penned!", actor.x, actor.y, "#eaf3d8");
     }
 
+    // Duty jobs run off whichever emergency vehicle you're driving.
+    const onFireDuty = this.driving?.spec.emergency === "fire";
+    const fireEarned = this.fireDept.update(dt, onFireDuty, actor);
+    if (fireEarned > 0) {
+      this.addCash(fireEarned, actor.x, actor.y);
+      this.flashText("Fire out!", actor.x, actor.y, "#ffb37a");
+    }
+
     this.minimap.update(actor, [
       this.missions.minimapMarker,
       this.shop.minimapMarker,
       this.pasture.minimapMarker,
       this.market.minimapMarker,
+      ...this.fireDept.minimapMarkers,
     ]);
 
     // Shop and market share the bottom prompt; whichever you're standing at wins.
@@ -429,10 +471,21 @@ export class WorldScene extends Phaser.Scene {
       cash: this.cash,
       produce: this.produce,
       fieldHint: this.fieldHint(),
-      objective: this.missions.objective,
+      objective: this.dutyObjective(onFireDuty),
       shopPrompt: stationPrompt,
       herd: this.pasture.contains(actor.x, actor.y) ? this.pasture.progress : null,
     });
+  }
+
+  // Objective line reflects the current duty, falling back to the delivery job.
+  private dutyObjective(onFireDuty: boolean): string {
+    if (onFireDuty) {
+      const n = this.fireDept.activeCount;
+      return n > 0
+        ? `🚒 Fire Dept — put out the fire (${n} active)`
+        : "🚒 Fire Dept — on call, watch for fires";
+    }
+    return this.missions.objective;
   }
 
   private tryBuy() {

@@ -80,6 +80,25 @@ export const FARM_MARKET = {
   contractBonusPerUnit: 6, // bonus on top of spot price when a contract completes
 };
 
+// Firefighter duty: fires break out on buildings while you drive the fire truck;
+// park near one to spray it out.
+export const FIRE_JOB = {
+  maxActive: 3,
+  spawnInterval: 6, // seconds between fires while on duty
+  extinguishRadius: 96,
+  extinguishRate: 42, // intensity/sec while the truck is close
+  intensity: 100,
+  reward: 55,
+};
+
+// Police duty: a suspect flees along the roads; catch it in the police car.
+export const POLICE_JOB = {
+  suspectSpeed: 240,
+  catchRadius: 62,
+  reward: 80,
+  respawnDelay: 2.5, // seconds before a new suspect after a bust
+};
+
 export const HERD = {
   cows: 4,
   reward: 70,
@@ -120,6 +139,7 @@ export interface VehicleSpec {
   grip: number; // 0..1, higher = less lateral slide (kills drift)
   turnRate: number; // rad/s at speed
   farmJob?: FarmJob; // set = this is a task tractor for that field stage
+  emergency?: "fire" | "police"; // set = duty vehicle with a light bar
 }
 
 // A crop is config too. `stages` is the number of visible growth steps; the last
@@ -230,5 +250,38 @@ export const VEHICLES: Record<string, VehicleSpec> = {
     drag: 0.8,
     grip: 0.7, // slides more = fun
     turnRate: 3.2,
+  },
+  // ---- duty vehicles ----
+  firetruck: {
+    key: "firetruck",
+    label: "Fire Truck",
+    bodyColor: 0xd12f2f,
+    accentColor: 0xf5d76e,
+    width: 96,
+    height: 44,
+    maxSpeed: 360,
+    accel: 400,
+    reverseMax: 120,
+    braking: 600,
+    drag: 1.0,
+    grip: 0.9,
+    turnRate: 2.5,
+    emergency: "fire",
+  },
+  police: {
+    key: "police",
+    label: "Police Car",
+    bodyColor: 0x1c2733,
+    accentColor: 0xecf0f1,
+    width: 66,
+    height: 34,
+    maxSpeed: 520,
+    accel: 660,
+    reverseMax: 160,
+    braking: 700,
+    drag: 0.85,
+    grip: 0.8,
+    turnRate: 3.1,
+    emergency: "police",
   },
 };
