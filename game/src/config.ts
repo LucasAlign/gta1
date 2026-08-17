@@ -54,6 +54,9 @@ export const COLORS = {
   cowSpot: 0x4a3b34,
   fence: 0x8a6a44,
   pen: 0x6db56d,
+  market: 0xe6952b,
+  fire: 0xff5a1f,
+  police: 0x2f6fd0,
 };
 
 // Colors traffic cars are tinted with (picked at random per car).
@@ -66,6 +69,15 @@ export const MISSION = {
   maxReward: 90,
   pickupRadius: 70,
   dropoffRadius: 70,
+};
+
+// Farmers' market: sell harvested produce for cash and fulfil rolling delivery
+// contracts. Per-unit price comes from the crop's own value.
+export const FARM_MARKET = {
+  radius: 82,
+  contractMin: 6,
+  contractMax: 12,
+  contractBonusPerUnit: 6, // bonus on top of spot price when a contract completes
 };
 
 export const HERD = {

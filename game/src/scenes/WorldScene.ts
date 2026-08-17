@@ -20,6 +20,7 @@ import { Player } from "../entities/Player";
 import { Hud } from "../ui/Hud";
 import { FarmField } from "../farming/FarmField";
 import { CowPasture } from "../farming/CowPasture";
+import { Market } from "../farming/Market";
 import { Traffic } from "../traffic/Traffic";
 import { Pedestrians } from "../npc/Pedestrians";
 import { Minimap } from "../ui/Minimap";
@@ -38,8 +39,10 @@ export class WorldScene extends Phaser.Scene {
   private hud!: Hud;
   private farm!: FarmField;
   private pasture!: CowPasture;
+  private market!: Market;
   private farmTiles: Array<{ tx: number; ty: number }> = [];
   private cash = 0;
+  private produce = 0;
   private traffic!: Traffic;
   private pedestrians!: Pedestrians;
   private minimap!: Minimap;
@@ -58,6 +61,7 @@ export class WorldScene extends Phaser.Scene {
     enter: Phaser.Input.Keyboard.Key;
     e: Phaser.Input.Keyboard.Key;
     b: Phaser.Input.Keyboard.Key;
+    gkey: Phaser.Input.Keyboard.Key;
   };
 
   constructor() {
@@ -70,6 +74,7 @@ export class WorldScene extends Phaser.Scene {
     this.farmTiles = [];
     this.driving = null;
     this.cash = 0;
+    this.produce = 0;
 
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -104,6 +109,9 @@ export class WorldScene extends Phaser.Scene {
     this.missions = new MissionManager(this);
     const shopPos = intersectionPx(1, Math.floor(BLOCKS_Y / 2));
     this.shop = new Shop(this, shopPos.x, shopPos.y);
+    // Farmers' market on the road just south of the farm field.
+    const marketPos = { x: this.farmCenterPx().x, y: intersectionPx(0, Math.floor(BLOCKS_Y / 2) + 1).y };
+    this.market = new Market(this, marketPos.x, marketPos.y);
 
     this.physics.add.collider(this.player, this.buildings);
     for (const v of this.vehicles) {
@@ -138,6 +146,7 @@ export class WorldScene extends Phaser.Scene {
       enter: kb.addKey("ENTER"),
       e: kb.addKey("E"),
       b: kb.addKey("B"),
+      gkey: kb.addKey("G"),
     };
     // Space + F also toggle vehicle, and prevent page scroll.
     kb.addKey("SPACE").on("down", () => this.toggleVehicle());
@@ -147,6 +156,8 @@ export class WorldScene extends Phaser.Scene {
     this.keys.e.on("down", () => this.footFarm());
     // B buys a tractor upgrade when near the shop.
     this.keys.b.on("down", () => this.tryBuy());
+    // G sells produce at the farmers' market.
+    this.keys.gkey.on("down", () => this.sellAtMarket());
 
     this.hud = new Hud(this);
     this.minimap = new Minimap(this);
@@ -381,7 +392,7 @@ export class WorldScene extends Phaser.Scene {
       const job = this.driving.spec.farmJob;
       if (job && this.driving.speed > 8) {
         const r = this.farm.interact(this.driving.x, this.driving.y, job);
-        if (r.cash > 0) this.addCash(r.cash, this.driving.x, this.driving.y);
+        if (r.produce > 0) this.gainProduce(r.produce, this.driving.x, this.driving.y);
       }
     } else {
       const dx = (right ? 1 : 0) + (left ? -1 : 0);
@@ -404,15 +415,22 @@ export class WorldScene extends Phaser.Scene {
       this.missions.minimapMarker,
       this.shop.minimapMarker,
       this.pasture.minimapMarker,
+      this.market.minimapMarker,
     ]);
+
+    // Shop and market share the bottom prompt; whichever you're standing at wins.
+    let stationPrompt: string | null = null;
+    if (this.shop.contains(actor.x, actor.y)) stationPrompt = this.shop.promptText(this.cash);
+    else if (this.market.contains(actor.x, actor.y)) stationPrompt = this.market.promptText(this.produce);
 
     this.hud.update({
       driving: this.driving,
       nearbyVehicle: this.nearestVehicleLabel(),
       cash: this.cash,
+      produce: this.produce,
       fieldHint: this.fieldHint(),
       objective: this.missions.objective,
-      shopPrompt: this.shop.contains(actor.x, actor.y) ? this.shop.promptText(this.cash) : null,
+      shopPrompt: stationPrompt,
       herd: this.pasture.contains(actor.x, actor.y) ? this.pasture.progress : null,
     });
   }
@@ -454,7 +472,22 @@ export class WorldScene extends Phaser.Scene {
   private footFarm() {
     if (this.driving) return;
     const r = this.farm.interact(this.player.x, this.player.y, "hand");
-    if (r.cash > 0) this.addCash(r.cash, this.player.x, this.player.y);
+    if (r.produce > 0) this.gainProduce(r.produce, this.player.x, this.player.y);
+  }
+
+  private gainProduce(n: number, x: number, y: number) {
+    this.produce += n;
+    this.flashText(`+${n} crop`, x, y, "#a6e05a");
+  }
+
+  private sellAtMarket() {
+    const actor = this.driving ?? this.player;
+    if (!this.market.contains(actor.x, actor.y)) return;
+    if (this.produce <= 0) return;
+    const res = this.market.sell(this.produce);
+    this.produce = 0;
+    this.cash += res.cash;
+    this.flashText(`+$${res.cash}${res.contractDone ? "  Contract!" : ""}`, actor.x, actor.y, "#ffe08a");
   }
 
   // Contextual field hint: which tractor a plot needs, or the on-foot action.

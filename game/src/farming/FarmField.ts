@@ -91,7 +91,7 @@ class Plot {
 
 export interface FieldResult {
   changed: boolean;
-  cash: number;
+  produce: number; // crops gained (harvest only) — sold later at the market
 }
 
 // Owns every crop plot on the farm field and runs the plow/seed/grow/harvest loop.
@@ -115,16 +115,17 @@ export class FarmField {
   }
 
   // Apply a job to the plot under (x, y). `hand` is on-foot: harvest only.
+  // Harvesting yields produce (sold later at the market), not instant cash.
   interact(x: number, y: number, job: FarmJob | "hand"): FieldResult {
     const plot = this.plotAtWorld(x, y);
-    if (!plot) return { changed: false, cash: 0 };
+    if (!plot) return { changed: false, produce: 0 };
 
-    if (job === "plow") return { changed: plot.till(), cash: 0 };
-    if (job === "seed") return { changed: plot.seed(this.scene, CROPS[DEFAULT_CROP]), cash: 0 };
+    if (job === "plow") return { changed: plot.till(), produce: 0 };
+    if (job === "seed") return { changed: plot.seed(this.scene, CROPS[DEFAULT_CROP]), produce: 0 };
 
-    // harvest or hand
-    const cash = plot.harvest(this.scene);
-    return { changed: cash > 0, cash };
+    // harvest or hand: one crop per ripe plot
+    const reaped = plot.harvest(this.scene) > 0;
+    return { changed: reaped, produce: reaped ? 1 : 0 };
   }
 
   get plotCount(): number {

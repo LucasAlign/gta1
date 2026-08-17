@@ -5,6 +5,7 @@ export interface HudState {
   driving: Vehicle | null;
   nearbyVehicle: string | null;
   cash: number;
+  produce: number;
   fieldHint: string | null;
   objective: string;
   shopPrompt: string | null;
@@ -18,6 +19,7 @@ export class Hud {
   private prompt: Phaser.GameObjects.Text;
   private speed: Phaser.GameObjects.Text;
   private cash: Phaser.GameObjects.Text;
+  private produce: Phaser.GameObjects.Text;
   private objective: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene) {
@@ -69,6 +71,16 @@ export class Hud {
       .setDepth(1000)
       .setOrigin(1, 0);
 
+    this.produce = scene.add
+      .text(0, 40, "", {
+        fontFamily: "ui-monospace, monospace",
+        fontSize: "14px",
+        color: "#a6e05a",
+      })
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setOrigin(1, 0);
+
     this.prompt = scene.add
       .text(0, 0, "", {
         fontFamily: "system-ui, sans-serif",
@@ -103,10 +115,12 @@ export class Hud {
     this.prompt.setPosition(w / 2, h - 24);
     this.speed.setPosition(w - 16, h - 16);
     this.cash.setPosition(w - 16, 14);
+    this.produce.setPosition(w - 16, 40);
   }
 
   update(s: HudState) {
     this.cash.setText(`$${s.cash}`);
+    this.produce.setText(s.produce > 0 ? `🌾 ${s.produce} crops` : "");
     // In the pasture, the objective line becomes the herding tracker.
     if (s.herd) {
       this.objective.setText(`◆ Herd the cows into the pen — ${s.herd.penned}/${s.herd.total}`);
