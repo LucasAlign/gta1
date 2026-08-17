@@ -8,6 +8,7 @@ export interface HudState {
   fieldHint: string | null;
   objective: string;
   shopPrompt: string | null;
+  herd: { penned: number; total: number } | null;
 }
 
 // Screen-fixed heads-up display. Uses setScrollFactor(0) so it never moves with
@@ -106,7 +107,12 @@ export class Hud {
 
   update(s: HudState) {
     this.cash.setText(`$${s.cash}`);
-    this.objective.setText(`◆ ${s.objective}`);
+    // In the pasture, the objective line becomes the herding tracker.
+    if (s.herd) {
+      this.objective.setText(`◆ Herd the cows into the pen — ${s.herd.penned}/${s.herd.total}`);
+    } else {
+      this.objective.setText(`◆ ${s.objective}`);
+    }
 
     if (s.driving) {
       const kmh = Math.round((s.driving.speed / 10) * 3.6);

@@ -44,6 +44,12 @@ scrolling, no page chrome.
   then the green drop-off marker, for cash. A new contract starts immediately.
 - **Shop** ($ marker) — spend farm + mission cash on the **Tractor Turbo**
   upgrade (more speed and acceleration, price climbs each level).
+- **Cow herding** (fenced **Pasture**, top-left) — a side quest: cows flee when
+  you get close (on foot or in a vehicle), so approach from the far side and
+  push the whole herd into the corner **pen**. Pen all of them to earn a reward;
+  a fresh round scatters them again. The fence only stops cows — you step over
+  it. Tuning lives in `src/config.ts` (`HERD`); logic in
+  `src/farming/CowPasture.ts`.
 
 ## Farming loop — three specialised tractors
 

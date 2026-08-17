@@ -19,13 +19,16 @@ import { Vehicle } from "../entities/Vehicle";
 import { Player } from "../entities/Player";
 import { Hud } from "../ui/Hud";
 import { FarmField } from "../farming/FarmField";
+import { CowPasture } from "../farming/CowPasture";
 import { Traffic } from "../traffic/Traffic";
 import { Pedestrians } from "../npc/Pedestrians";
 import { Minimap } from "../ui/Minimap";
 import { MissionManager } from "../missions/MissionManager";
 import { Shop } from "../shop/Shop";
 
-type BlockKind = "building" | "park" | "farm";
+type BlockKind = "building" | "park" | "farm" | "pasture";
+
+const PASTURE_BLOCK = { bx: 0, by: 0 };
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -34,6 +37,7 @@ export class WorldScene extends Phaser.Scene {
   private driving: Vehicle | null = null;
   private hud!: Hud;
   private farm!: FarmField;
+  private pasture!: CowPasture;
   private farmTiles: Array<{ tx: number; ty: number }> = [];
   private cash = 0;
   private traffic!: Traffic;
@@ -75,6 +79,15 @@ export class WorldScene extends Phaser.Scene {
     this.buildGround();
     this.farm = new FarmField(this, this.farmTiles);
 
+    // Cow pasture occupies the designated block's full footprint.
+    const pb = {
+      x: (PASTURE_BLOCK.bx * PERIOD + ROAD_TILES) * TILE,
+      y: (PASTURE_BLOCK.by * PERIOD + ROAD_TILES) * TILE,
+      w: BLOCK_TILES * TILE,
+      h: BLOCK_TILES * TILE,
+    };
+    this.pasture = new CowPasture(this, pb);
+
     // Player starts by the farm depot, next to the task tractors.
     const cyStart = Math.floor(BLOCKS_Y / 2);
     const start = {
@@ -101,6 +114,13 @@ export class WorldScene extends Phaser.Scene {
     // You can bump traffic in a vehicle or on foot; traffic recovers its lane.
     this.physics.add.collider(this.vehicles, this.traffic.group);
     this.physics.add.collider(this.player, this.traffic.group);
+
+    // Cows stay inside the pasture fence (fence collides with cows only, so the
+    // player/vehicles step over the rail); you physically nudge cows too.
+    this.physics.add.collider(this.pasture.cowGroup, this.pasture.fences);
+    this.physics.add.collider(this.pasture.cowGroup, this.pasture.cowGroup);
+    this.physics.add.collider(this.player, this.pasture.cowGroup);
+    this.physics.add.collider(this.vehicles, this.pasture.cowGroup);
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
     this.cameras.main.setZoom(1);
@@ -137,6 +157,7 @@ export class WorldScene extends Phaser.Scene {
   private blockKind(bx: number, by: number): BlockKind {
     const cx = Math.floor(BLOCKS_X / 2);
     const cy = Math.floor(BLOCKS_Y / 2);
+    if (bx === PASTURE_BLOCK.bx && by === PASTURE_BLOCK.by) return "pasture";
     if (bx === cx && by === cy) return "farm";
     if ((bx + by) % 5 === 0) return "park";
     return "building";
@@ -172,6 +193,8 @@ export class WorldScene extends Phaser.Scene {
           if (!isBorder) this.farmTiles.push({ tx, ty });
         } else if (kind === "park") {
           stamp(isBorder ? "tile-sidewalk" : "tile-grass", tx, ty);
+        } else if (kind === "pasture") {
+          stamp("tile-grass", tx, ty); // grass edge-to-edge for the pasture
         } else {
           stamp("tile-sidewalk", tx, ty);
         }
@@ -366,12 +389,22 @@ export class WorldScene extends Phaser.Scene {
       this.player.walk(dx, dy);
     }
 
-    // Missions track whichever entity the player controls.
+    // Missions + herding track whichever entity the player controls.
     const actor = this.driving ?? this.player;
     const earned = this.missions.update(actor.x, actor.y);
     if (earned > 0) this.addCash(earned, actor.x, actor.y);
 
-    this.minimap.update(actor, [this.missions.minimapMarker, this.shop.minimapMarker]);
+    const herdEarned = this.pasture.update(dt, actor.x, actor.y);
+    if (herdEarned > 0) {
+      this.addCash(herdEarned, actor.x, actor.y);
+      this.flashText("Herd penned!", actor.x, actor.y, "#eaf3d8");
+    }
+
+    this.minimap.update(actor, [
+      this.missions.minimapMarker,
+      this.shop.minimapMarker,
+      this.pasture.minimapMarker,
+    ]);
 
     this.hud.update({
       driving: this.driving,
@@ -380,6 +413,7 @@ export class WorldScene extends Phaser.Scene {
       fieldHint: this.fieldHint(),
       objective: this.missions.objective,
       shopPrompt: this.shop.contains(actor.x, actor.y) ? this.shop.promptText(this.cash) : null,
+      herd: this.pasture.contains(actor.x, actor.y) ? this.pasture.progress : null,
     });
   }
 

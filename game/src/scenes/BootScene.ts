@@ -15,6 +15,7 @@ export class BootScene extends Phaser.Scene {
     this.makeSidewalkTile();
     this.makePlayer();
     this.makePed();
+    this.makeCow();
 
     for (const spec of Object.values(VEHICLES)) {
       this.makeVehicle(spec);
@@ -77,6 +78,24 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0x2a1e26, 1).fillCircle(size / 2, size / 2, size / 2);
     g.fillStyle(COLORS.ped, 1).fillCircle(size / 2, size / 2, size / 2 - 2);
     g.generateTexture("ped", size, size);
+    g.destroy();
+  }
+
+  // Top-down cow: rounded white body pointing east, dark spots + a head nub.
+  private makeCow() {
+    const w = 30;
+    const h = 20;
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.2).fillEllipse(w / 2 + 1, h / 2 + 2, w, h);
+    g.fillStyle(COLORS.cow, 1).fillRoundedRect(2, 1, w - 4, h - 2, 7);
+    // spots
+    g.fillStyle(COLORS.cowSpot, 1);
+    g.fillCircle(w * 0.4, h * 0.4, 3.5);
+    g.fillCircle(w * 0.6, h * 0.62, 2.8);
+    // head at the front (east)
+    g.fillStyle(COLORS.cow, 1).fillCircle(w - 3, h / 2, 4.5);
+    g.fillStyle(0xf6b8c8, 1).fillCircle(w - 1, h / 2, 2); // snout
+    g.generateTexture("cow", w + 2, h + 4);
     g.destroy();
   }
 

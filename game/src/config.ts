@@ -50,6 +50,10 @@ export const COLORS = {
   pickup: 0xf4c430,
   dropoff: 0x3fd07a,
   shop: 0x8e6bd0,
+  cow: 0xf3efe9,
+  cowSpot: 0x4a3b34,
+  fence: 0x8a6a44,
+  pen: 0x6db56d,
 };
 
 // Colors traffic cars are tinted with (picked at random per car).
@@ -62,6 +66,14 @@ export const MISSION = {
   maxReward: 90,
   pickupRadius: 70,
   dropoffRadius: 70,
+};
+
+export const HERD = {
+  cows: 4,
+  reward: 70,
+  fleeRadius: 100, // cows flee when the player/vehicle is this close
+  fleeSpeed: 140,
+  wanderSpeed: 32,
 };
 
 export const SHOP = {
