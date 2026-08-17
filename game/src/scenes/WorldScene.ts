@@ -8,6 +8,7 @@ import {
   ROAD_TILES,
   TILE,
   VEHICLES,
+  VehicleSpec,
   WORLD_H,
   WORLD_TILES_X,
   WORLD_TILES_Y,
@@ -74,8 +75,12 @@ export class WorldScene extends Phaser.Scene {
     this.buildGround();
     this.farm = new FarmField(this, this.farmTiles);
 
-    // Player starts on a road near the farm.
-    const start = this.tileToPx(ROAD_TILES + 1, ROAD_TILES + 1);
+    // Player starts by the farm depot, next to the task tractors.
+    const cyStart = Math.floor(BLOCKS_Y / 2);
+    const start = {
+      x: this.farmCenterPx().x,
+      y: (cyStart * PERIOD + ROAD_TILES / 2) * TILE - 44,
+    };
     this.player = new Player(this, start.x, start.y);
 
     this.spawnVehicles();
@@ -231,26 +236,56 @@ export class WorldScene extends Phaser.Scene {
     (rect.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
   }
 
+  // World-pixel center of the farm block.
+  private farmCenterPx() {
+    const cx = Math.floor(BLOCKS_X / 2);
+    const cy = Math.floor(BLOCKS_Y / 2);
+    return {
+      x: (cx * PERIOD + ROAD_TILES + BLOCK_TILES / 2) * TILE,
+      y: (cy * PERIOD + ROAD_TILES + BLOCK_TILES / 2) * TILE,
+    };
+  }
+
   private spawnVehicles() {
-    // Park a few vehicles on roads around the map so there's always one nearby.
-    const specs = [
-      VEHICLES.tractor,
-      VEHICLES.hatchback,
-      VEHICLES.sports,
-      VEHICLES.tractor,
-      VEHICLES.hatchback,
+    this.buildDepot();
+
+    // City cars parked on roads for getting around / delivery missions.
+    const city: Array<[VehicleSpec, number, number, number]> = [
+      [VEHICLES.hatchback, ROAD_TILES + 2, ROAD_TILES - 0.5, 0],
+      [VEHICLES.sports, ROAD_TILES - 0.5, PERIOD + 2, Math.PI / 2],
+      [VEHICLES.hatchback, WORLD_TILES_X - ROAD_TILES - 2, WORLD_TILES_Y - ROAD_TILES - 1, Math.PI],
     ];
-    const spots: Array<[number, number, number]> = [
-      [ROAD_TILES + 2, ROAD_TILES - 0.5, 0],
-      [PERIOD + ROAD_TILES + 1, ROAD_TILES - 0.5, 0],
-      [ROAD_TILES - 0.5, PERIOD + 2, Math.PI / 2],
-      [WORLD_TILES_X - ROAD_TILES - 2, WORLD_TILES_Y - ROAD_TILES - 1, Math.PI],
-      [Math.floor(WORLD_TILES_X / 2), ROAD_TILES - 0.5, 0],
-    ];
-    spots.forEach(([tx, ty, rot], i) => {
+    for (const [spec, tx, ty, rot] of city) {
       const p = this.tileToPx(tx, ty);
-      const v = new Vehicle(this, p.x, p.y, specs[i % specs.length]);
+      const v = new Vehicle(this, p.x, p.y, spec);
       v.rotation = rot;
+      this.vehicles.push(v);
+    }
+  }
+
+  // Parks the three task tractors on the road just north of the farm field,
+  // with a labelled slab, so the player can swap jobs by hopping between them.
+  private buildDepot() {
+    const cy = Math.floor(BLOCKS_Y / 2);
+    const northRoadY = (cy * PERIOD + ROAD_TILES / 2) * TILE;
+    const cx = this.farmCenterPx().x;
+
+    // depot slab + label
+    this.add.rectangle(cx, northRoadY, 300, 74, 0x1f242b, 0.55).setDepth(-8);
+    this.add
+      .text(cx, northRoadY - 30, "FARM DEPOT", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "12px",
+        color: "#f4d03f",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5)
+      .setDepth(-7);
+
+    const tractors = [VEHICLES.plow, VEHICLES.seeder, VEHICLES.harvester];
+    tractors.forEach((spec, i) => {
+      const v = new Vehicle(this, cx + (i - 1) * 92, northRoadY, spec);
+      v.rotation = Math.PI / 2; // face south, into the field
       this.vehicles.push(v);
     });
   }
@@ -318,9 +353,11 @@ export class WorldScene extends Phaser.Scene {
       const throttle = (up ? 1 : 0) + (down ? -1 : 0);
       const steer = (right ? 1 : 0) + (left ? -1 : 0);
       this.driving.drive({ throttle, steer }, dt);
-      // The tractor tills/plants and harvests just by driving over the field.
-      if (this.driving.spec.key === "tractor" && this.driving.speed > 8) {
-        const r = this.farm.interact(this.driving.x, this.driving.y);
+      // A task tractor performs only its own field stage, just by driving over
+      // a plot: the Plow tills, the Seeder plants, the Harvester reaps.
+      const job = this.driving.spec.farmJob;
+      if (job && this.driving.speed > 8) {
+        const r = this.farm.interact(this.driving.x, this.driving.y, job);
         if (r.cash > 0) this.addCash(r.cash, this.driving.x, this.driving.y);
       }
     } else {
@@ -340,7 +377,7 @@ export class WorldScene extends Phaser.Scene {
       driving: this.driving,
       nearbyVehicle: this.nearestVehicleLabel(),
       cash: this.cash,
-      footHint: this.footHint(),
+      fieldHint: this.fieldHint(),
       objective: this.missions.objective,
       shopPrompt: this.shop.contains(actor.x, actor.y) ? this.shop.promptText(this.cash) : null,
     });
@@ -378,20 +415,43 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
-  // On-foot plant/harvest of the plot underfoot (E key).
+  // On foot you can only harvest ripe crops by hand — plowing and seeding need
+  // the tractors.
   private footFarm() {
     if (this.driving) return;
-    const r = this.farm.interact(this.player.x, this.player.y);
+    const r = this.farm.interact(this.player.x, this.player.y, "hand");
     if (r.cash > 0) this.addCash(r.cash, this.player.x, this.player.y);
   }
 
-  private footHint(): string | null {
-    if (this.driving) return null;
-    const plot = this.farm.plotAtWorld(this.player.x, this.player.y);
+  // Contextual field hint: which tractor a plot needs, or the on-foot action.
+  private fieldHint(): string | null {
+    const job = this.driving?.spec.farmJob ?? null;
+    // In a non-tractor vehicle: no field hints.
+    if (this.driving && !job) return null;
+
+    const actor = this.driving ?? this.player;
+    const plot = this.farm.plotAtWorld(actor.x, actor.y);
     if (!plot) return null;
-    if (plot.state === "empty") return "Press E to plant";
-    if (plot.state === "ripe") return "Press E to harvest";
-    return "Growing…";
+
+    // Driving the right tractor for this plot — it works automatically, stay quiet.
+    if (job && plot.need === job) return null;
+
+    const needLabel: Record<string, string> = {
+      plow: "Plow Tractor",
+      seed: "Seeder",
+      harvest: "Harvester",
+    };
+    switch (plot.need) {
+      case "plow":
+        return job ? "Needs the Plow Tractor" : "Bring the Plow Tractor";
+      case "seed":
+        return "Needs the Seeder";
+      case "wait":
+        return "Growing…";
+      case "harvest":
+        return this.driving ? "Needs the Harvester" : "Press E to harvest";
+    }
+    return needLabel[plot.need] ?? null;
   }
 
   private addCash(amount: number, x: number, y: number) {

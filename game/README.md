@@ -45,19 +45,28 @@ scrolling, no page chrome.
 - **Shop** ($ marker) — spend farm + mission cash on the **Tractor Turbo**
   upgrade (more speed and acceleration, price climbs each level).
 
-## Farming loop
+## Farming loop — three specialised tractors
 
-The center soil block is a grid of crop plots, wired straight into the driving
-loop instead of a menu:
+The center soil block is a grid of crop plots. Each plot cycles through a
+four-stage loop, and **each stage is gated to a specific task tractor** parked
+at the **Farm Depot** (north of the field):
 
-- **Drive the tractor over empty soil** → it tills and plants a crop.
-- Crops grow through visible stages over time (sprout → bushy → ripe).
-- **Drive the ripe crop over** → harvest it for cash (`+$` popup, HUD total
-  top-right). Only the tractor farms; cars just drive.
-- On foot, stand on a plot and press **E** to plant or harvest by hand.
+```
+untilled --(Plow Tractor)--> tilled --(Seeder)--> growing --(time)--> ripe
+   ripe --(Harvester)--> untilled   (loop repeats)
+```
 
-Crops are data-driven in `src/config.ts` (`CROPS`) — growth time, stages, and
-cash value are config, so adding a new crop is an entry, not new code.
+- Hop between the three depot tractors to do each job — driving the matching
+  tractor over a plot performs its stage automatically.
+- The HUD hints which tractor a plot needs.
+- On foot you can **harvest ripe crops by hand (E)**, but plowing and seeding
+  need the tractors.
+- Harvesting pays cash (`+$` popup, HUD total top-right).
+
+Tractors and crops are data-driven in `src/config.ts`: a task tractor is just a
+`VehicleSpec` with a `farmJob` (`plow` / `seed` / `harvest`); crops are `CROPS`
+entries (growth time, stages, value). Field state machine lives in
+`src/farming/FarmField.ts`.
 
 ## How it's laid out
 

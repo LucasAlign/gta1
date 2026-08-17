@@ -5,7 +5,7 @@ export interface HudState {
   driving: Vehicle | null;
   nearbyVehicle: string | null;
   cash: number;
-  footHint: string | null;
+  fieldHint: string | null;
   objective: string;
   shopPrompt: string | null;
 }
@@ -36,7 +36,7 @@ export class Hud {
       .text(
         16,
         42,
-        "WASD move  •  Enter in/out  •  E farm  •  B buy at shop  •  tractor farms by driving the field",
+        "WASD move  •  Enter in/out  •  Plow → Seed → Harvest the field  •  E harvest by hand  •  B shop",
         {
           fontFamily: "system-ui, sans-serif",
           fontSize: "13px",
@@ -117,11 +117,11 @@ export class Hud {
       this.speed.setVisible(false);
     }
 
-    // Prompt priority: shop > enter-vehicle > farming hint.
+    // Prompt priority: shop > enter-vehicle > field hint (works on foot or in a tractor).
     let prompt: string | null = null;
     if (s.shopPrompt) prompt = s.shopPrompt;
     else if (!s.driving && s.nearbyVehicle) prompt = `Press Enter to drive the ${s.nearbyVehicle}`;
-    else if (!s.driving && s.footHint) prompt = s.footHint;
+    else if (s.fieldHint) prompt = s.fieldHint;
 
     if (prompt) this.prompt.setText(prompt).setVisible(true);
     else this.prompt.setVisible(false);

@@ -67,8 +67,12 @@ export class Shop {
     if (cash < cost) return { ok: false, cost: 0, message: `Need $${cost}` };
 
     this.level++;
-    VEHICLES.tractor.maxSpeed += SHOP.turboSpeedPerLevel;
-    VEHICLES.tractor.accel += SHOP.turboAccelPerLevel;
+    // Apply the boost to every task tractor (plow/seeder/harvester).
+    for (const spec of Object.values(VEHICLES)) {
+      if (!spec.farmJob) continue;
+      spec.maxSpeed += SHOP.turboSpeedPerLevel;
+      spec.accel += SHOP.turboAccelPerLevel;
+    }
     return { ok: true, cost, message: `Tractor Turbo Lv ${this.level}!` };
   }
 

@@ -1,39 +1,60 @@
 import Phaser from "phaser";
-import { CROPS, CropSpec, DEFAULT_CROP, TILE } from "../config";
+import { CROPS, CropSpec, DEFAULT_CROP, FarmJob, TILE } from "../config";
 
-type PlotState = "empty" | "growing" | "ripe";
+export type PlotState = "untilled" | "tilled" | "growing" | "ripe";
 
-// One soil cell. Holds its own growth timer and two sprites (tilled patch + crop)
-// so the field can advance thousands of plots cheaply.
+// What a plot wants next — drives HUD hints ("grab the Seeder", etc.).
+export type PlotNeed = "plow" | "seed" | "wait" | "harvest";
+
+// One soil cell cycling through the field loop:
+//   untilled --(Plow)--> tilled --(Seeder)--> growing --(time)--> ripe
+//   ripe --(Harvester/hand)--> untilled   (loop repeats)
 class Plot {
-  state: PlotState = "empty";
+  state: PlotState = "untilled";
   stage = 0;
-  timer = 0;
-  crop: CropSpec | null = null;
-  readonly tx: number;
-  readonly ty: number;
+  private timer = 0;
+  private crop: CropSpec | null = null;
   readonly x: number;
   readonly y: number;
   private tilled: Phaser.GameObjects.Image;
   private plant: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene, tx: number, ty: number) {
-    this.tx = tx;
-    this.ty = ty;
     this.x = tx * TILE + TILE / 2;
     this.y = ty * TILE + TILE / 2;
     this.tilled = scene.add.image(this.x, this.y, "tilled").setDepth(-9).setVisible(false);
     this.plant = scene.add.image(this.x, this.y, "crop-carrot-0").setDepth(1).setVisible(false);
   }
 
-  plant_(scene: Phaser.Scene, spec: CropSpec) {
+  get need(): PlotNeed {
+    switch (this.state) {
+      case "untilled":
+        return "plow";
+      case "tilled":
+        return "seed";
+      case "growing":
+        return "wait";
+      case "ripe":
+        return "harvest";
+    }
+  }
+
+  till(): boolean {
+    if (this.state !== "untilled") return false;
+    this.state = "tilled";
+    this.tilled.setVisible(true).setScale(0.6);
+    return true;
+  }
+
+  seed(scene: Phaser.Scene, spec: CropSpec): boolean {
+    if (this.state !== "tilled") return false;
     this.crop = spec;
     this.state = "growing";
     this.stage = 0;
     this.timer = 0;
-    this.tilled.setVisible(true);
     this.plant.setTexture(`crop-${spec.key}-0`).setVisible(true).setScale(0.4);
     scene.tweens.add({ targets: this.plant, scale: 1, duration: 220, ease: "Back.out" });
+    return true;
   }
 
   advance(dtSec: number) {
@@ -47,7 +68,7 @@ class Plot {
     }
   }
 
-  harvest_(scene: Phaser.Scene): number {
+  harvest(scene: Phaser.Scene): number {
     if (this.state !== "ripe" || !this.crop) return 0;
     const value = this.crop.value;
     const plant = this.plant;
@@ -60,15 +81,20 @@ class Plot {
       ease: "Quad.out",
       onComplete: () => plant.setVisible(false).setAlpha(1).setScale(1).setY(this.y),
     });
-    this.tilled.setVisible(false);
-    this.state = "empty";
+    this.tilled.setVisible(false); // reaped soil goes back to untilled
+    this.state = "untilled";
     this.stage = 0;
     this.crop = null;
     return value;
   }
 }
 
-// Owns every crop plot on the farm field and the plant/grow/harvest loop.
+export interface FieldResult {
+  changed: boolean;
+  cash: number;
+}
+
+// Owns every crop plot on the farm field and runs the plow/seed/grow/harvest loop.
 export class FarmField {
   private scene: Phaser.Scene;
   private plots = new Map<string, Plot>();
@@ -88,19 +114,17 @@ export class FarmField {
     return this.plots.get(key(Math.floor(x / TILE), Math.floor(y / TILE)));
   }
 
-  // Drive/step onto a plot: plant an empty one, harvest a ripe one, else nothing.
-  // Returns cash gained (0 unless a harvest happened).
-  interact(x: number, y: number): { planted: boolean; cash: number } {
+  // Apply a job to the plot under (x, y). `hand` is on-foot: harvest only.
+  interact(x: number, y: number, job: FarmJob | "hand"): FieldResult {
     const plot = this.plotAtWorld(x, y);
-    if (!plot) return { planted: false, cash: 0 };
-    if (plot.state === "empty") {
-      plot.plant_(this.scene, CROPS[DEFAULT_CROP]);
-      return { planted: true, cash: 0 };
-    }
-    if (plot.state === "ripe") {
-      return { planted: false, cash: plot.harvest_(this.scene) };
-    }
-    return { planted: false, cash: 0 };
+    if (!plot) return { changed: false, cash: 0 };
+
+    if (job === "plow") return { changed: plot.till(), cash: 0 };
+    if (job === "seed") return { changed: plot.seed(this.scene, CROPS[DEFAULT_CROP]), cash: 0 };
+
+    // harvest or hand
+    const cash = plot.harvest(this.scene);
+    return { changed: cash > 0, cash };
   }
 
   get plotCount(): number {

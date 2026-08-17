@@ -74,6 +74,11 @@ export const SHOP = {
   radius: 80,
 };
 
+// Field jobs a tractor can perform. Each stage of the field loop is gated to the
+// tractor that carries the matching job — that's the whole point of specialised
+// tractors: one machine, one task.
+export type FarmJob = "plow" | "seed" | "harvest";
+
 // A vehicle is a config, never a bespoke class — matches the handoff's
 // "vehicle framework is the technical keystone" note.
 export interface VehicleSpec {
@@ -90,6 +95,7 @@ export interface VehicleSpec {
   drag: number; // passive deceleration factor per second
   grip: number; // 0..1, higher = less lateral slide (kills drift)
   turnRate: number; // rad/s at speed
+  farmJob?: FarmJob; // set = this is a task tractor for that field stage
 }
 
 // A crop is config too. `stages` is the number of visible growth steps; the last
@@ -122,20 +128,54 @@ export const CROPS: Record<string, CropSpec> = {
 export const DEFAULT_CROP = "carrot";
 
 export const VEHICLES: Record<string, VehicleSpec> = {
-  tractor: {
-    key: "tractor",
-    label: "Tractor",
-    bodyColor: 0x2e7d32,
+  // ---- task tractors (one per field stage) ----
+  plow: {
+    key: "plow",
+    label: "Plow Tractor",
+    bodyColor: 0x9c5a2c, // earthy brown
+    accentColor: 0xd98a3d,
+    width: 76,
+    height: 54,
+    maxSpeed: 180,
+    accel: 240,
+    reverseMax: 85,
+    braking: 420,
+    drag: 1.3,
+    grip: 0.96,
+    turnRate: 2.1,
+    farmJob: "plow",
+  },
+  seeder: {
+    key: "seeder",
+    label: "Seeder",
+    bodyColor: 0x2e7d32, // classic green
     accentColor: 0xf4d03f,
-    width: 74,
-    height: 52,
+    width: 72,
+    height: 50,
     maxSpeed: 210,
     accel: 260,
     reverseMax: 90,
     braking: 420,
     drag: 1.2,
     grip: 0.95,
-    turnRate: 2.2,
+    turnRate: 2.3,
+    farmJob: "seed",
+  },
+  harvester: {
+    key: "harvester",
+    label: "Harvester",
+    bodyColor: 0xd4a017, // combine yellow
+    accentColor: 0xb03030,
+    width: 86,
+    height: 58,
+    maxSpeed: 200,
+    accel: 250,
+    reverseMax: 85,
+    braking: 440,
+    drag: 1.25,
+    grip: 0.96,
+    turnRate: 2.0,
+    farmJob: "harvest",
   },
   hatchback: {
     key: "hatchback",

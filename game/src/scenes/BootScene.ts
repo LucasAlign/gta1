@@ -99,14 +99,29 @@ export class BootScene extends Phaser.Scene {
     g.fillCircle(w - 3, h * 0.22, 2.5);
     g.fillCircle(w - 3, h * 0.78, 2.5);
 
-    if (spec.key === "tractor") {
-      // chunky rear wheels for tractor character
+    if (spec.farmJob) {
+      // chunky rear wheels give the task tractors their agricultural character
       g.fillStyle(0x1a1a1a, 1);
       g.fillCircle(w * 0.2, 2, 6);
       g.fillCircle(w * 0.2, h - 2, 6);
+
+      // a job-specific implement hanging off the front of the tractor
+      if (spec.farmJob === "plow") {
+        // three plow discs
+        g.fillStyle(0xc9ccd1, 1);
+        g.fillTriangle(w, h * 0.2, w + 5, h * 0.1, w + 5, h * 0.3);
+        g.fillTriangle(w, h * 0.5, w + 5, h * 0.4, w + 5, h * 0.6);
+        g.fillTriangle(w, h * 0.8, w + 5, h * 0.7, w + 5, h * 0.9);
+      } else if (spec.farmJob === "seed") {
+        // seed hopper on the back
+        g.fillStyle(0x6b4a2f, 1).fillRoundedRect(-4, h * 0.28, 10, h * 0.44, 2);
+      } else if (spec.farmJob === "harvest") {
+        // wide reel bar across the front
+        g.fillStyle(0x8a5a2b, 1).fillRect(w, 2, 5, h - 4);
+      }
     }
 
-    g.generateTexture(`veh-${spec.key}`, w + 6, h + 6);
+    g.generateTexture(`veh-${spec.key}`, w + 8, h + 6);
     g.destroy();
   }
 
