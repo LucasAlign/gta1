@@ -6,12 +6,15 @@ interface Point {
   y: number;
 }
 
-// A single building fire: flame graphics + an intensity that only drops while
-// the fire truck is parked close (spraying).
+// A single building fire. Intensity drops while the truck sprays it, and grows
+// when left unattended — a big enough fire spreads to a neighbour, and a fire
+// pinned at max intensity long enough burns the building down (a penalty).
 class Fire {
   readonly x: number;
   readonly y: number;
   intensity = FIRE_JOB.intensity;
+  spreadTimer = FIRE_JOB.spreadCooldown;
+  private atMaxTimer = 0;
   private flames: Phaser.GameObjects.Container;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
@@ -44,9 +47,32 @@ class Fire {
     });
   }
 
-  spray(dtSec: number) {
-    this.intensity -= FIRE_JOB.extinguishRate * dtSec;
+  private rescale() {
     this.flames.setScale(Math.max(0.4, this.intensity / FIRE_JOB.intensity));
+  }
+
+  // Being sprayed: intensity falls. Returns true once extinguished.
+  spray(dtSec: number): boolean {
+    this.intensity -= FIRE_JOB.extinguishRate * dtSec;
+    this.atMaxTimer = 0;
+    this.rescale();
+    return this.intensity <= 0;
+  }
+
+  // Left alone: intensity grows; track spread readiness and burnout timer.
+  grow(dtSec: number) {
+    this.intensity = Math.min(FIRE_JOB.maxIntensity, this.intensity + FIRE_JOB.growthRate * dtSec);
+    this.spreadTimer -= dtSec;
+    if (this.intensity >= FIRE_JOB.maxIntensity) this.atMaxTimer += dtSec;
+    this.rescale();
+  }
+
+  get readyToSpread(): boolean {
+    return this.intensity >= FIRE_JOB.spreadThreshold && this.spreadTimer <= 0;
+  }
+
+  get burnedOut(): boolean {
+    return this.atMaxTimer >= FIRE_JOB.burnoutTime;
   }
 
   destroy() {
@@ -67,8 +93,9 @@ export class FireDept {
     this.sites = buildingSites;
   }
 
-  // Returns reward cash earned this frame (per fire extinguished).
-  update(dtSec: number, onDuty: boolean, truck: Point): number {
+  // Returns cash change this frame: rewards for extinguishing, penalties for
+  // buildings that burn down.
+  update(dtSec: number, onDuty: boolean, truck: Point): { reward: number; penalty: number } {
     if (onDuty) {
       this.spawnTimer -= dtSec;
       if (this.spawnTimer <= 0 && this.fires.length < FIRE_JOB.maxActive) {
@@ -78,31 +105,66 @@ export class FireDept {
     }
 
     let reward = 0;
+    let penalty = 0;
+    const toSpread: Point[] = [];
+
     for (let i = this.fires.length - 1; i >= 0; i--) {
       const fire = this.fires[i];
-      if (
+      const spraying =
         onDuty &&
-        Phaser.Math.Distance.Between(truck.x, truck.y, fire.x, fire.y) < FIRE_JOB.extinguishRadius
-      ) {
-        fire.spray(dtSec);
-        if (fire.intensity <= 0) {
+        Phaser.Math.Distance.Between(truck.x, truck.y, fire.x, fire.y) < FIRE_JOB.extinguishRadius;
+
+      if (spraying) {
+        if (fire.spray(dtSec)) {
           fire.destroy();
           this.fires.splice(i, 1);
           reward += FIRE_JOB.reward;
         }
+        continue;
+      }
+
+      // unattended: grow, maybe spread, maybe burn the building down
+      fire.grow(dtSec);
+      if (fire.readyToSpread && this.fires.length + toSpread.length < FIRE_JOB.hardCap) {
+        fire.spreadTimer = FIRE_JOB.spreadCooldown;
+        toSpread.push(fire);
+      }
+      if (fire.burnedOut) {
+        fire.destroy();
+        this.fires.splice(i, 1);
+        penalty += FIRE_JOB.penalty;
       }
     }
-    return reward;
+
+    for (const from of toSpread) this.spawnFireNear(from);
+    return { reward, penalty };
+  }
+
+  private freeSites(): Point[] {
+    return this.sites.filter((s) => !this.fires.some((f) => f.x === s.x && f.y === s.y));
   }
 
   private spawnFire() {
-    // avoid stacking two fires on the same building
-    const free = this.sites.filter(
-      (s) => !this.fires.some((f) => f.x === s.x && f.y === s.y)
-    );
+    const free = this.freeSites();
     if (!free.length) return;
     const site = Phaser.Utils.Array.GetRandom(free);
     this.fires.push(new Fire(this.scene, site.x, site.y));
+  }
+
+  // Spread: ignite the nearest free building to an existing fire.
+  private spawnFireNear(from: Point) {
+    const free = this.freeSites();
+    if (!free.length) return;
+    let best = free[0];
+    let bestD = Infinity;
+    for (const s of free) {
+      const d = Phaser.Math.Distance.Between(from.x, from.y, s.x, s.y);
+      if (d > 1 && d < bestD) {
+        bestD = d;
+        best = s;
+      }
+    }
+    this.fires.push(new Fire(this.scene, best.x, best.y));
   }
 
   get activeCount(): number {

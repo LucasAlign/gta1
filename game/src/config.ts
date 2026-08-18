@@ -83,20 +83,32 @@ export const FARM_MARKET = {
 // Firefighter duty: fires break out on buildings while you drive the fire truck;
 // park near one to spray it out.
 export const FIRE_JOB = {
-  maxActive: 3,
+  maxActive: 3, // fires spawned by the timer
+  hardCap: 6, // absolute cap including spread
   spawnInterval: 6, // seconds between fires while on duty
   extinguishRadius: 96,
   extinguishRate: 42, // intensity/sec while the truck is close
-  intensity: 100,
+  intensity: 100, // starting intensity
+  growthRate: 9, // intensity/sec when left unattended
+  maxIntensity: 160,
+  spreadThreshold: 150, // spreads to a nearby building above this
+  spreadCooldown: 5, // seconds between spreads from one fire
+  burnoutTime: 6, // seconds at max intensity before the building is lost
+  penalty: 40, // cash lost when a building burns down
   reward: 55,
 };
 
 // Police duty: a suspect flees along the roads; catch it in the police car.
+// The longer the chase runs, the higher the wanted level: faster suspect,
+// bigger payout.
 export const POLICE_JOB = {
   suspectSpeed: 240,
   catchRadius: 62,
   reward: 80,
   respawnDelay: 2.5, // seconds before a new suspect after a bust
+  escalateInterval: 6, // seconds per wanted level
+  maxWanted: 5,
+  speedStep: 0.13, // suspect speed bonus per wanted level above 1
 };
 
 // Progression: each job gains rank with completions (raising its base reward),

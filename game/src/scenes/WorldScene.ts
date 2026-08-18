@@ -472,8 +472,12 @@ export class WorldScene extends Phaser.Scene {
 
     // Duty jobs run off whichever emergency vehicle you're driving.
     const duty = this.driving?.spec.emergency ?? null;
-    const fireEarned = this.fireDept.update(dt, duty === "fire", actor);
-    if (fireEarned > 0) this.awardJob("fire", fireEarned, actor.x, actor.y, "Fire out!");
+    const fireResult = this.fireDept.update(dt, duty === "fire", actor);
+    if (fireResult.reward > 0) this.awardJob("fire", fireResult.reward, actor.x, actor.y, "Fire out!");
+    if (fireResult.penalty > 0) {
+      this.cash = Math.max(0, this.cash - fireResult.penalty);
+      this.flashText(`Building lost!  -$${fireResult.penalty}`, actor.x, actor.y, "#ff8080");
+    }
     const busted = this.police.update(dt, duty === "police", actor);
     if (busted > 0) this.awardJob("police", busted, actor.x, actor.y, "Suspect busted!");
 
@@ -521,8 +525,9 @@ export class WorldScene extends Phaser.Scene {
       return `${base}   · Rank ${this.progression.rankOf("fire")}`;
     }
     if (duty === "police") {
+      const stars = "★".repeat(this.police.wanted);
       const base = this.police.hasSuspect
-        ? "🚓 Police — chase down the suspect"
+        ? `🚓 Police — chase the suspect  ${stars}`
         : "🚓 Police — on patrol, awaiting a call";
       return `${base}   · Rank ${this.progression.rankOf("police")}`;
     }

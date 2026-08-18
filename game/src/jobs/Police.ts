@@ -74,12 +74,12 @@ class Suspect {
     this.tiy = best[1];
   }
 
-  update(dtSec: number, police: Point) {
+  update(dtSec: number, police: Point, speed: number) {
     const target = intersectionPx(this.tix, this.tiy);
     const dx = target.x - this.x;
     const dy = target.y - this.y;
     const dist = Math.hypot(dx, dy) || 1;
-    const step = Math.min(dist, POLICE_JOB.suspectSpeed * dtSec);
+    const step = Math.min(dist, speed * dtSec);
     this.x += (dx / dist) * step;
     this.y += (dy / dist) * step;
     this.sprite.setPosition(this.x, this.y).setRotation(Math.atan2(dy, dx));
@@ -101,12 +101,15 @@ export class Police {
   private scene: Phaser.Scene;
   private suspect: Suspect | null = null;
   private respawnTimer = 1.5;
+  private chaseTime = 0;
+  private wantedLevel = 1;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
   }
 
-  // Returns reward cash when a suspect is busted this frame, else 0.
+  // Returns reward cash when a suspect is busted this frame, else 0. The reward
+  // scales with the wanted level the chase reached.
   update(dtSec: number, onDuty: boolean, police: Point): number {
     if (!onDuty) {
       if (this.suspect) {
@@ -114,6 +117,8 @@ export class Police {
         this.suspect = null;
       }
       this.respawnTimer = 1.2;
+      this.chaseTime = 0;
+      this.wantedLevel = 1;
       return 0;
     }
 
@@ -123,14 +128,29 @@ export class Police {
       return 0;
     }
 
-    this.suspect.update(dtSec, police);
+    // escalate: the longer the chase, the higher the wanted level
+    this.chaseTime += dtSec;
+    this.wantedLevel = Math.min(
+      POLICE_JOB.maxWanted,
+      Math.floor(this.chaseTime / POLICE_JOB.escalateInterval) + 1
+    );
+    const speed = POLICE_JOB.suspectSpeed * (1 + (this.wantedLevel - 1) * POLICE_JOB.speedStep);
+
+    this.suspect.update(dtSec, police, speed);
     if (Phaser.Math.Distance.Between(this.suspect.x, this.suspect.y, police.x, police.y) < POLICE_JOB.catchRadius) {
+      const reward = POLICE_JOB.reward * this.wantedLevel;
       this.suspect.destroy();
       this.suspect = null;
       this.respawnTimer = POLICE_JOB.respawnDelay;
-      return POLICE_JOB.reward;
+      this.chaseTime = 0;
+      this.wantedLevel = 1;
+      return reward;
     }
     return 0;
+  }
+
+  get wanted(): number {
+    return this.suspect ? this.wantedLevel : 0;
   }
 
   private spawnSuspect(police: Point) {
