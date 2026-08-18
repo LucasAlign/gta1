@@ -31,6 +31,7 @@ import { Shop } from "../shop/Shop";
 import { FireDept } from "../jobs/FireDept";
 import { Police } from "../jobs/Police";
 import { Progression, JobType } from "../jobs/Progression";
+import { SaveState } from "../save/SaveState";
 
 const JOB_LABEL: Record<JobType, string> = {
   fire: "Fire Dept",
@@ -66,6 +67,7 @@ export class WorldScene extends Phaser.Scene {
   private police!: Police;
   private progression = new Progression();
   private buildingSites: Array<{ x: number; y: number }> = [];
+  private saveHandler: () => void = () => {};
 
   private keys!: {
     up: Phaser.Input.Keyboard.Key;
@@ -193,6 +195,46 @@ export class WorldScene extends Phaser.Scene {
 
     this.hud = new Hud(this);
     this.minimap = new Minimap(this);
+
+    // Persistence: restore a saved game, then save periodically + on exit.
+    this.loadGame();
+    this.time.addEvent({ delay: 3000, loop: true, callback: () => this.saveGame() });
+    this.saveHandler = () => this.saveGame();
+    window.addEventListener("beforeunload", this.saveHandler);
+    this.events.once("shutdown", () => window.removeEventListener("beforeunload", this.saveHandler));
+    // Shift+N wipes the save and starts fresh.
+    kb.addKey("N").on("down", (e: KeyboardEvent) => {
+      if (e.shiftKey) this.newGame();
+    });
+  }
+
+  // ---- save / load --------------------------------------------------------
+
+  private loadGame() {
+    const d = SaveState.load();
+    if (!d) return;
+    this.cash = d.cash ?? 0;
+    this.produce = d.produce ?? {};
+    this.seederCropIndex = d.seederCropIndex ?? 0;
+    this.shop.restore(d.shopLevel ?? 0);
+    this.progression.restore(d.progression);
+    if (d.contract) this.market.restoreContract(d.contract.delivered, d.contract.need);
+  }
+
+  private saveGame() {
+    SaveState.save({
+      cash: this.cash,
+      produce: this.produce,
+      seederCropIndex: this.seederCropIndex,
+      shopLevel: this.shop.level,
+      progression: this.progression.snapshot(),
+      contract: this.market.contract,
+    });
+  }
+
+  private newGame() {
+    SaveState.clear();
+    this.scene.restart();
   }
 
   // ---- world construction -------------------------------------------------

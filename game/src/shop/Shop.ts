@@ -7,13 +7,30 @@ export interface BuyResult {
   message: string;
 }
 
+// Base tractor stats captured at import (before any purchase), so applying a
+// turbo level is absolute-from-base and therefore idempotent — safe to re-apply
+// when restoring a saved game.
+const BASE_TRACTOR: Record<string, { maxSpeed: number; accel: number }> = {};
+for (const spec of Object.values(VEHICLES)) {
+  if (spec.farmJob) BASE_TRACTOR[spec.key] = { maxSpeed: spec.maxSpeed, accel: spec.accel };
+}
+
+function applyTurbo(level: number) {
+  for (const spec of Object.values(VEHICLES)) {
+    if (!spec.farmJob) continue;
+    const base = BASE_TRACTOR[spec.key];
+    spec.maxSpeed = base.maxSpeed + level * SHOP.turboSpeedPerLevel;
+    spec.accel = base.accel + level * SHOP.turboAccelPerLevel;
+  }
+}
+
 // A fixed roadside shop. Standing near it and pressing B spends cash on the
 // "Tractor Turbo" upgrade, which mutates the shared tractor spec so the boost
 // applies to every tractor immediately (speed + acceleration).
 export class Shop {
   readonly x: number;
   readonly y: number;
-  private level = 0;
+  private level_ = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.x = x;
@@ -44,11 +61,11 @@ export class Shop {
   }
 
   get price(): number {
-    return SHOP.turboBasePrice + SHOP.turboPriceStep * this.level;
+    return SHOP.turboBasePrice + SHOP.turboPriceStep * this.level_;
   }
 
   get maxed(): boolean {
-    return this.level >= SHOP.turboMaxLevel;
+    return this.level_ >= SHOP.turboMaxLevel;
   }
 
   contains(px: number, py: number): boolean {
@@ -57,8 +74,8 @@ export class Shop {
 
   promptText(cash: number): string {
     if (this.maxed) return "Tractor fully upgraded";
-    if (cash < this.price) return `Need $${this.price} for Tractor Turbo (Lv ${this.level + 1})`;
-    return `Press B — Tractor Turbo Lv ${this.level + 1}  ($${this.price})`;
+    if (cash < this.price) return `Need $${this.price} for Tractor Turbo (Lv ${this.level_ + 1})`;
+    return `Press B — Tractor Turbo Lv ${this.level_ + 1}  ($${this.price})`;
   }
 
   buy(cash: number): BuyResult {
@@ -66,14 +83,19 @@ export class Shop {
     const cost = this.price;
     if (cash < cost) return { ok: false, cost: 0, message: `Need $${cost}` };
 
-    this.level++;
-    // Apply the boost to every task tractor (plow/seeder/harvester).
-    for (const spec of Object.values(VEHICLES)) {
-      if (!spec.farmJob) continue;
-      spec.maxSpeed += SHOP.turboSpeedPerLevel;
-      spec.accel += SHOP.turboAccelPerLevel;
-    }
-    return { ok: true, cost, message: `Tractor Turbo Lv ${this.level}!` };
+    this.level_++;
+    applyTurbo(this.level_); // absolute-from-base = idempotent
+    return { ok: true, cost, message: `Tractor Turbo Lv ${this.level_}!` };
+  }
+
+  get level(): number {
+    return this.level_;
+  }
+
+  // Restore a saved turbo level (re-applies the boost to the base specs).
+  restore(level: number) {
+    this.level_ = Phaser.Math.Clamp(level, 0, SHOP.turboMaxLevel);
+    applyTurbo(this.level_);
   }
 
   get minimapMarker() {

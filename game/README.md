@@ -33,6 +33,24 @@ scrolling, no page chrome.
 - **E** — on foot, harvest the ripe plot you're standing on
 - **B** — buy the tractor upgrade when standing at the shop
 - **G** — sell produce at the farmers' market
+- **C** — cycle the crop the Seeder plants
+- **Shift+N** — wipe the save and start a new game
+
+## Crops, ranks & persistence
+
+- **Crops** — carrot (balanced), wheat (fast/cheap), pumpkin (slow/valuable).
+  The Seeder plants whichever crop is selected (**C**); each sells at its own
+  price at the market.
+- **Progression** — every job gains **rank** with completions (bigger rewards),
+  and a shared **streak** multiplies back-to-back completions (decays if you
+  idle). Shown in the HUD.
+- **Emergency stakes** — unattended fires grow, **spread** to neighbouring
+  buildings, and burn a building down (cash penalty) if ignored. Police chases
+  **escalate** a wanted level (★) the longer they run — faster suspect, bigger
+  payout.
+- **Save/load** — cash, produce, tractor upgrades, job ranks, and the market
+  contract persist to `localStorage` automatically (every few seconds and on
+  exit). **Shift+N** starts fresh.
 
 ## Economy & jobs
 
