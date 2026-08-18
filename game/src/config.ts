@@ -121,6 +121,18 @@ export const PROGRESSION = {
   streakCap: 6, // max streak steps counted
 };
 
+// Hitting pedestrians or traffic in a vehicle costs you cash (and makes them
+// react). A per-target cooldown stops one bump draining money every frame.
+export const TRAFFIC_PENALTY = {
+  pedFine: 25,
+  carFine: 15,
+  minSpeed: 90, // vehicle speed (px/s) below which a bump doesn't count as a hit
+  pedHitRadius: 24,
+  pedDownTime: 1.6, // seconds a struck pedestrian stays down
+  pedKnockback: 190, // px/s the pedestrian is flung
+  hitCooldown: 1.5, // seconds before the same target can be fined again
+};
+
 export const HERD = {
   cows: 4,
   reward: 70,

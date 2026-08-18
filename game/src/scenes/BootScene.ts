@@ -21,6 +21,7 @@ export class BootScene extends Phaser.Scene {
       this.makeVehicle(spec);
     }
 
+    this.makeDroplet();
     this.makeTilled();
     for (const crop of Object.values(CROPS)) {
       this.makeCrop(crop);
@@ -149,6 +150,15 @@ export class BootScene extends Phaser.Scene {
     }
 
     g.generateTexture(`veh-${spec.key}`, w + 8, h + 6);
+    g.destroy();
+  }
+
+  // Small water droplet used by the fire hose particle emitter.
+  private makeDroplet() {
+    const g = this.add.graphics();
+    g.fillStyle(0x9fd8ff, 1).fillCircle(5, 5, 4);
+    g.fillStyle(0xffffff, 0.7).fillCircle(4, 4, 1.6);
+    g.generateTexture("droplet", 10, 10);
     g.destroy();
   }
 
